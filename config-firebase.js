@@ -14,6 +14,13 @@ if (!firebase.apps.length) {
 }
 
 window.auth = firebase.auth();
+window.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+  .then(() => {
+    console.log("Persistência de login ativada.");
+  })
+  .catch((erro) => {
+    console.error("Erro na persistência do login:", erro);
+  });
 window.db = firebase.firestore();
 
 try {
