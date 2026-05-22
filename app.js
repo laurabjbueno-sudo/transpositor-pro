@@ -951,7 +951,16 @@ async function removerDaSetlist(index, event) {
 function loginGoogle() {
   if (window.auth) {
     const provider = new firebase.auth.GoogleAuthProvider();
-    window.auth.signInWithRedirect(provider);
+
+    window.auth.signInWithPopup(provider)
+      .then((result) => {
+        console.log("Login realizado:", result.user.email);
+      })
+      .catch((error) => {
+        console.error("Erro no login:", error);
+        alert("Erro ao fazer login: " + error.message);
+      });
+
   } else {
     alert("Erro: O sistema do Firebase não foi inicializado corretamente.");
   }
