@@ -441,11 +441,33 @@ atualizarCabecalhoMusica(
 
     async function login() {
   try {
+    const authRef = window.auth || auth;
     const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithPopup(provider);
+    provider.setCustomParameters({ prompt: "select_account" });
+
+    await authRef.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+    const resultado = await authRef.signInWithPopup(provider);
+    console.log("Login realizado:", resultado.user?.email || resultado.user?.uid);
   } catch (erro) {
     console.error("Erro no login:", erro);
-    alert("Erro no login: " + erro.message);
+
+    if (erro && (erro.code === "auth/popup-blocked" || erro.code === "auth/cancelled-popup-request")) {
+      try {
+        const authRef = window.auth || auth;
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+        await authRef.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        await authRef.signInWithRedirect(provider);
+        return;
+      } catch (erroRedirect) {
+        console.error("Erro no redirect:", erroRedirect);
+        alert("Erro no login: " + erroRedirect.message);
+        return;
+      }
+    }
+
+    alert("Erro no login: " + (erro?.message || erro));
   }
 }
 

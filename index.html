@@ -605,6 +605,8 @@
     .modal-box {
       width: 100%;
       max-width: 640px;
+      max-height: 90vh;
+      overflow-y: auto;
       background: var(--card);
       border-radius: 18px;
       padding: 18px;
@@ -902,7 +904,7 @@ body.light-theme.modo-palco #controlePalco {
 
   <div class="header-profile">
   <button id="themeToggleBtn" class="theme-toggle-btn" onclick="alternarTemaRapido()" title="Alternar tema">☀️</button>
-  <button id="loginBtn" onclick="loginGoogle()">Login Google</button>
+  <button id="loginBtn" onclick="login()">Login Google</button>
 
     <div id="profileTopBox" class="profile-top-box" onclick="toggleProfileMenu()">
       <img id="profilePhotoTop" class="avatar-top" alt="Foto do perfil">
@@ -1158,23 +1160,8 @@ body.light-theme.modo-palco #controlePalco {
   <button onclick="abrirPainel('setlists')">📋 Setlists</button>
   <button onclick="abrirFormularioNovaMusica()">➕ Add</button>
 </div>
-
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
   <script src="config-firebase.js"></script>
-  <script src="motor-musical.js"></script>
   <script src="app.js"></script>
-
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js")
-          .then(reg => console.log("Service Worker registrado com sucesso!", reg.scope))
-          .catch(err => console.error("Erro ao registrar o Service Worker:", err));
-      });
-    }
-
-  </script>
 </body>
 </html>
+
