@@ -1185,3 +1185,94 @@ if (window.auth) {
     }
   });
 }
+
+// ===== COMPATIBILIDADE NOVA UI =====
+
+// Mapeia IDs novos
+window.addEventListener("DOMContentLoaded", () => {
+
+  window.listaMusicas = document.getElementById("lista");
+  window.tituloMusica = document.getElementById("displayTitulo");
+  window.artistaMusica = document.getElementById("displayArtista");
+  window.capoMusica = document.getElementById("displayCapo");
+  window.tomMusica = document.getElementById("displayTom");
+  window.conteudoMusica = document.getElementById("output");
+
+});
+
+// Tema
+function alternarTemaRapido() {
+  document.body.classList.toggle("light-theme");
+}
+
+// Menu perfil
+function toggleProfileMenu() {
+  document.getElementById("profileDropdown")
+    ?.classList.toggle("visible");
+}
+
+// Painéis
+function fecharPainel() {
+  document.querySelectorAll(".bottom-sheet-panel")
+    .forEach(p => p.classList.remove("visible"));
+
+  document.getElementById("panelOverlay")
+    ?.classList.remove("visible");
+}
+
+function abrirPainel(nome) {
+
+  fecharPainel();
+
+  const mapa = {
+    buscar: "painelBusca",
+    pastas: "painelPastas",
+    musicas: "painelMusicas",
+    setlists: "painelSetlists"
+  };
+
+  const painel = document.getElementById(mapa[nome]);
+
+  if (painel) {
+    painel.classList.add("visible");
+    document.getElementById("panelOverlay")
+      ?.classList.add("visible");
+  }
+
+}
+
+// Compatibilidade
+function criarPasta() {
+  abrirModalNovaPasta();
+}
+
+function criarSetlist() {
+  abrirModalNovoSetlist();
+}
+
+function transpor(v) {
+  alterarTom(v);
+}
+
+function resetarTom() {
+  semitons = 0;
+  atualizarVisualizacao();
+}
+
+function alterarFonte(v) {
+  alterarTamanhoFonte(v);
+}
+
+function editarMusicaAberta() {
+  if (musicaAbertaId)
+    abrirFormulario(musicaAbertaId);
+}
+
+function favoritarMusicaAberta() {
+  alert("Favoritos será ligado depois.");
+}
+
+function copiarLinkMusica() {
+  navigator.clipboard.writeText(location.href);
+  alert("Link copiado.");
+}
