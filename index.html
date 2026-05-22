@@ -888,6 +888,138 @@ body.light-theme.modo-palco #controlePalco {
   background: rgba(255, 255, 255, .88);
 }
 
+
+/* Ajustes adicionados: barra da cifra, botões de setlist e fundos */
+.cifra-toolbar {
+  position: sticky;
+  top: calc(var(--header-height) + 6px);
+  z-index: 1100;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-soft) 92%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.cifra-toolbar button {
+  padding: 9px 10px;
+  font-size: 13px;
+}
+
+.setlist-only {
+  display: none;
+}
+
+body.tem-setlist-ativa .setlist-only {
+  display: inline-flex;
+}
+
+.modal-box {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+body.bg-pastel-green {
+  --bg: #ecfdf5;
+  --bg-soft: #f7fee7;
+  --card: #ffffff;
+  --border: #bbf7d0;
+  --border-soft: #dcfce7;
+  --text: #052e16;
+  --text-soft: #166534;
+}
+
+body.bg-pastel-blue {
+  --bg: #eff6ff;
+  --bg-soft: #f8fafc;
+  --card: #ffffff;
+  --border: #bfdbfe;
+  --border-soft: #dbeafe;
+  --text: #0f172a;
+  --text-soft: #1d4ed8;
+}
+
+body.bg-pastel-pink {
+  --bg: #fdf2f8;
+  --bg-soft: #fff7ed;
+  --card: #ffffff;
+  --border: #fbcfe8;
+  --border-soft: #fce7f3;
+  --text: #3b0764;
+  --text-soft: #9d174d;
+}
+
+body.bg-pastel-yellow {
+  --bg: #fefce8;
+  --bg-soft: #fffbeb;
+  --card: #ffffff;
+  --border: #fde68a;
+  --border-soft: #fef3c7;
+  --text: #422006;
+  --text-soft: #92400e;
+}
+
+body.bg-strong-purple {
+  --bg: #2e1065;
+  --bg-soft: #1e1b4b;
+  --card: #312e81;
+  --border: #6d28d9;
+  --border-soft: #4c1d95;
+  --text: #f5f3ff;
+  --text-soft: #ddd6fe;
+}
+
+body.bg-strong-blue {
+  --bg: #0c4a6e;
+  --bg-soft: #082f49;
+  --card: #075985;
+  --border: #0284c7;
+  --border-soft: #0369a1;
+  --text: #f0f9ff;
+  --text-soft: #bae6fd;
+}
+
+body.bg-strong-green {
+  --bg: #064e3b;
+  --bg-soft: #052e16;
+  --card: #065f46;
+  --border: #059669;
+  --border-soft: #047857;
+  --text: #ecfdf5;
+  --text-soft: #bbf7d0;
+}
+
+body.bg-strong-red {
+  --bg: #7f1d1d;
+  --bg-soft: #450a0a;
+  --card: #991b1b;
+  --border: #dc2626;
+  --border-soft: #b91c1c;
+  --text: #fff7ed;
+  --text-soft: #fecaca;
+}
+
+@media (max-width: 640px) {
+  .cifra-toolbar {
+    top: calc(var(--header-height) + 4px);
+    gap: 6px;
+    padding: 7px;
+    border-radius: 12px;
+  }
+
+  .cifra-toolbar button {
+    flex: 1 1 auto;
+    font-size: 12px;
+    padding: 8px 8px;
+  }
+}
+
   </style>
 </head>
 <body>
@@ -904,7 +1036,7 @@ body.light-theme.modo-palco #controlePalco {
 
   <div class="header-profile">
   <button id="themeToggleBtn" class="theme-toggle-btn" onclick="alternarTemaRapido()" title="Alternar tema">☀️</button>
-  <button id="loginBtn" onclick="login()">Login Google</button>
+  <button id="loginBtn" type="button" onclick="login()">Login Google</button>
 
     <div id="profileTopBox" class="profile-top-box" onclick="toggleProfileMenu()">
       <img id="profilePhotoTop" class="avatar-top" alt="Foto do perfil">
@@ -927,6 +1059,23 @@ body.light-theme.modo-palco #controlePalco {
     <option value="#eab308">Amarelo</option>
     <option value="#14b8a6">Turquesa</option>
     <option value="#ec4899">Rosa</option>
+  </select>
+
+  <label style="font-size:13px;color:var(--text-soft);display:block;margin-bottom:6px;">
+    Cor de fundo
+  </label>
+
+  <select id="bgSelect" onchange="aplicarFundoSelecionado()">
+    <option value="dark">Escuro padrão</option>
+    <option value="light">Claro padrão</option>
+    <option value="pastel-green">Pastel verde</option>
+    <option value="pastel-blue">Pastel azul</option>
+    <option value="pastel-pink">Pastel rosa</option>
+    <option value="pastel-yellow">Pastel amarelo</option>
+    <option value="strong-purple">Forte roxo</option>
+    <option value="strong-blue">Forte azul</option>
+    <option value="strong-green">Forte verde</option>
+    <option value="strong-red">Forte vermelho</option>
   </select>
 
 <button onclick="exportarBackup()">Exportar backup</button>
@@ -1081,28 +1230,22 @@ body.light-theme.modo-palco #controlePalco {
   </div>
 </div>
 
-          <div class="tone-buttons" style="margin-bottom: 14px;">
+          <div id="cifraToolbar" class="cifra-toolbar">
             <button onclick="transpor(-1)">-1 tom</button>
             <button onclick="transpor(1)">+1 tom</button>
             <button onclick="resetarTom()">Resetar tom</button>
-            <button onclick="musicaAnteriorSetlist()">⬅️ Anterior</button>
-            <button onclick="proximaMusicaSetlist()">Próxima ➡️</button>
+            <button onclick="alterarFonte(-1)">A−</button>
+            <button onclick="alterarFonte(1)">A+</button>
+            <button id="btnAutoScroll" onclick="toggleRolagemAutomatica()">▶ Rolar</button>
+            <button onclick="toggleModoPalco()">🎤 Palco</button>
+            <button class="secondary" onclick="editarMusicaAberta()">Editar cifra</button>
+            <button class="secondary" onclick="favoritarMusicaAberta()">⭐</button>
+            <button class="secondary" onclick="copiarLinkMusica()">🔗</button>
+            <button id="btnSetlistAnterior" class="setlist-only" onclick="musicaAnteriorSetlist()">⬅️ Anterior</button>
+            <button id="btnSetlistProxima" class="setlist-only" onclick="proximaMusicaSetlist()">Próxima ➡️</button>
           </div>
 
           <div class="viewer-box">
-  <div class="viewer-actions">
-  <div class="viewer-font-actions">
-    <button onclick="alterarFonte(-1)">A−</button>
-    <button onclick="alterarFonte(1)">A+</button>
-    <button onclick="toggleModoPalco()">🎤</button>
-  </div>
-
-  <div style="display:flex; gap:8px; flex-wrap:wrap;">
-  <button class="secondary" onclick="favoritarMusicaAberta()">⭐ Favoritar</button>
-  <button class="secondary" onclick="copiarLinkMusica()">🔗 Link</button>
-  <button class="secondary" onclick="editarMusicaAberta()">Editar cifra</button>
-</div>
-
   <pre id="output">Abra ou digite uma música para visualizar aqui.</pre>
                         </div>
         </div>
