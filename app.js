@@ -973,21 +973,36 @@ function logout() {
 }
 
 function atualizarAreaAuth(u) {
-  const container = document.getElementById("auth-container");
-  if (!container) return;
+
+  const loginBtn = document.getElementById("loginBtn");
+
+  const profileTopBox = document.getElementById("profileTopBox");
+  const profilePhotoTop = document.getElementById("profilePhotoTop");
+  const profileNameTop = document.getElementById("profileNameTop");
+  const profileEmailTop = document.getElementById("profileEmailTop");
 
   if (u) {
-    container.innerHTML = `
-      <div class="user-profile-nav" onclick="toggleMenuUsuario()">
-        <img src="${u.photoURL || 'https://via.placeholder.com/40'}" alt="Foto" class="user-avatar">
-        <div class="user-menu-dropdown" id="menu-usuario-dropdown">
-          <span class="user-menu-email">${u.email}</span>
-          <button onclick="logout()"><i class="fas fa-sign-out-alt"></i> Sair</button>
-        </div>
-      </div>
-    `;
+
+    loginBtn.style.display = "none";
+
+    profileTopBox.classList.add("visible");
+
+    profilePhotoTop.src =
+      u.photoURL ||
+      "https://via.placeholder.com/80";
+
+    profileNameTop.textContent =
+      u.displayName || "Usuário";
+
+    profileEmailTop.textContent =
+      u.email || "";
+
   } else {
-    container.innerHTML = `<button class="btn-login-google" onclick="loginGoogle()"><i class="fab fa-google"></i> Entrar</button>`;
+
+    loginBtn.style.display = "inline-flex";
+
+    profileTopBox.classList.remove("visible");
+
   }
 }
 
