@@ -1186,42 +1186,27 @@ if (window.auth) {
   });
 }
 
-// ===== COMPATIBILIDADE NOVA UI =====
+// ===== COMPATIBILIDADE NOVA UI - CORRIGIDA =====
 
-// Mapeia IDs novos
-window.addEventListener("DOMContentLoaded", () => {
+function $(id) {
+  return document.getElementById(id);
+}
 
-  window.listaMusicas = document.getElementById("lista");
-  window.tituloMusica = document.getElementById("displayTitulo");
-  window.artistaMusica = document.getElementById("displayArtista");
-  window.capoMusica = document.getElementById("displayCapo");
-  window.tomMusica = document.getElementById("displayTom");
-  window.conteudoMusica = document.getElementById("output");
-
-});
-
-// Tema
 function alternarTemaRapido() {
   document.body.classList.toggle("light-theme");
 }
 
-// Menu perfil
 function toggleProfileMenu() {
-  document.getElementById("profileDropdown")
-    ?.classList.toggle("visible");
+  $("profileDropdown")?.classList.toggle("visible");
 }
 
-// Painéis
 function fecharPainel() {
   document.querySelectorAll(".bottom-sheet-panel")
     .forEach(p => p.classList.remove("visible"));
-
-  document.getElementById("panelOverlay")
-    ?.classList.remove("visible");
+  $("panelOverlay")?.classList.remove("visible");
 }
 
 function abrirPainel(nome) {
-
   fecharPainel();
 
   const mapa = {
@@ -1231,48 +1216,365 @@ function abrirPainel(nome) {
     setlists: "painelSetlists"
   };
 
-  const painel = document.getElementById(mapa[nome]);
-
+  const painel = $(mapa[nome]);
   if (painel) {
     painel.classList.add("visible");
-    document.getElementById("panelOverlay")
-      ?.classList.add("visible");
+    $("panelOverlay")?.classList.add("visible");
   }
 
+  if (nome === "buscar") carregarListaMemoria();
+  if (nome === "musicas") carregarTodasMusicas();
+  if (nome === "pastas") carregarPainelPastasIniciais();
+  if (nome === "setlists") carregarPainelSetlistsIniciais();
 }
 
-// Compatibilidade
-function criarPasta() {
-  abrirModalNovaPasta();
+function carregarListaMemoria() {
+  const container = $("lista");
+  const vazio = $("listaVazia");
+  if (!container) return;
+
+  const termo = normalizarTexto($("busca")?.value || "");
+  let lista = window.musicasOriginais || [];
+
+  if (termo) {
+    lista = lista.filter(m => {
+      const texto = normalizarTexto(
+        `${m.titulo || ""} ${m.artista || ""} ${m.musica || ""} ${m.tom || ""} ${m.genero || ""}`
+      );
+      return texto.includes(termo);
+    });
+  }
+
+  container.innerHTML = "";
+  container.classList.add("visible");
+
+  if (!lista.length) {
+    if (vazio) {
+      vazio.style.display = "block";
+      vazio.innerText = "Nenhuma música encontrada.";
+    }
+    return;
+  }
+
+  if (vazio) vazio.style.display = "none";
+
+  lista.forEach(m => {
+    const item = document.createElement("div");
+    item.className = "song-item";
+    item.innerHTML = `
+      <div class="song-item-title">${m.titulo || "Sem título"}</div>
+      <div class="song-item-artist">${m.artista || ""}</div>
+      <button onclick="abrir('${m.id}')">Abrir</button>
+    `;
+    container.appendChild(item);
+  });
 }
 
-function criarSetlist() {
-  abrirModalNovoSetlist();
+function carregarTodasMusicas() {
+  const container = $("listaTodasMusicas");
+  const vazio = $("listaTodasMusicasVazia");
+  if (!container) return;
+
+  const termo = normalizarTexto($("buscaTodasMusicas")?.value || "");
+  let lista = window.musicasOriginais || [];
+
+  if (termo) {
+    lista = lista.filter(m => normalizarTexto(
+      `${m.titulo || ""} ${m.artista || ""} ${m.musica || ""} ${m.tom || ""} ${m.genero || ""}`
+    ).includes(termo));
+  }
+
+  container.innerHTML = "";
+  container.classList.add("visible");
+
+  if (!lista.length) {
+    if (vazio) {
+      vazio.style.display = "block";
+      vazio.innerText = "Nenhuma música salva.";
+    }
+    return;
+  }
+
+  if (vazio) vazio.style.display = "none";
+
+  lista.forEach(m => {
+    const item = document.createElement("div");
+    item.className = "song-item";
+    item.innerHTML = `
+      <div class="song-item-title">${m.titulo || "Sem título"}</div>
+      <div class="song-item-artist">${m.artista || ""}</div>
+      <button onclick="abrir('${m.id}')">Abrir</button>
+      <button onclick="editarMusica('${m.id}')">Editar</button>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function carregarPainelPastasIniciais() {
+  const container = $("listaPastas");
+  const vazio = $("listaPastasVazia");
+  if (!container) return;
+
+  const pastas = window.pastasOriginais || [];
+  container.innerHTML = "";
+  container.classList.add("visible");
+
+  if (!pastas.length) {
+    if (vazio) {
+      vazio.style.display = "block";
+      vazio.innerText = "Nenhuma pasta criada.";
+    }
+    return;
+  }
+
+  if (vazio) vazio.style.display = "none";
+
+  pastas.forEach(p => {
+    const item = document.createElement("div");
+    item.className = "song-item";
+    item.innerHTML = `
+      <div class="song-item-title">${p.nome || "Pasta sem nome"}</div>
+      <button onclick="abrirPastaNovaUI('${p.id}')">Abrir pasta</button>
+      <button onclick="deletarPasta('${p.id}')">Excluir</button>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function abrirPastaNovaUI(id) {
+  const pasta = (window.pastasOriginais || []).find(p => p.id === id);
+  const musicas = (window.musicasOriginais || []).filter(m => m.pastaId === id);
+
+  $("tituloMusicasDaPasta").innerText = pasta ? `Músicas da pasta: ${pasta.nome}` : "Músicas da pasta";
+
+  const container = $("listaMusicasDaPasta");
+  const vazio = $("listaMusicasDaPastaVazia");
+  container.innerHTML = "";
+
+  if (!musicas.length) {
+    vazio.style.display = "block";
+    vazio.innerText = "Nenhuma música nesta pasta.";
+    return;
+  }
+
+  vazio.style.display = "none";
+
+  musicas.forEach(m => {
+    const item = document.createElement("div");
+    item.className = "song-item";
+    item.innerHTML = `
+      <div class="song-item-title">${m.titulo}</div>
+      <div class="song-item-artist">${m.artista || ""}</div>
+      <button onclick="abrir('${m.id}')">Abrir</button>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function carregarPainelSetlistsIniciais() {
+  const container = $("listaSetlists");
+  const vazio = $("listaSetlistsVazia");
+  if (!container) return;
+
+  const setlists = window.setlistsOriginais || [];
+  container.innerHTML = "";
+  container.classList.add("visible");
+
+  if (!setlists.length) {
+    if (vazio) {
+      vazio.style.display = "block";
+      vazio.innerText = "Nenhuma setlist criada.";
+    }
+    return;
+  }
+
+  if (vazio) vazio.style.display = "none";
+
+  setlists.forEach(s => {
+    const item = document.createElement("div");
+    item.className = "song-item";
+    item.innerHTML = `
+      <div class="song-item-title">${s.nome || "Setlist sem nome"}</div>
+      <div class="song-item-artist">${(s.musicas || []).length} música(s)</div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function abrir(id) {
+  const m = (window.musicasOriginais || []).find(item => item.id === id);
+  if (!m) return;
+
+  musicaAbertaId = id;
+  original = m.musica || "";
+  semitons = 0;
+
+  $("displayTitulo").innerText = m.titulo || "Sem título";
+  $("displayArtista").innerText = m.artista || "";
+  $("displayCapo").innerText = m.capo ? `Capo: ${m.capo}` : "";
+  $("displayTom").innerText = m.tom ? `Tom: ${m.tom}` : "";
+
+  atualizarVisualizacao();
+  fecharPainel();
+}
+
+function atualizarVisualizacao() {
+  const output = $("output");
+  if (!output) return;
+
+  let txt = original || "";
+
+  txt = txt.replace(/\[ch\]([^\]]+)\[\/ch\]/g, function(_, acorde) {
+    const novo = typeof transporAcorde === "function"
+      ? transporAcorde(acorde.trim(), semitons)
+      : acorde;
+    return `<span class="acorde">${novo}</span>`;
+  });
+
+  output.innerHTML = txt || "Abra ou digite uma música para visualizar aqui.";
 }
 
 function transpor(v) {
-  alterarTom(v);
+  semitons += v;
+  atualizarVisualizacao();
+
+  const m = (window.musicasOriginais || []).find(item => item.id === musicaAbertaId);
+  if (m?.tom) {
+    $("displayTom").innerText = "Tom: " + transporAcorde(m.tom, semitons);
+  }
 }
 
 function resetarTom() {
   semitons = 0;
   atualizarVisualizacao();
+
+  const m = (window.musicasOriginais || []).find(item => item.id === musicaAbertaId);
+  if (m?.tom) $("displayTom").innerText = "Tom: " + m.tom;
 }
 
 function alterarFonte(v) {
-  alterarTamanhoFonte(v);
+  const pre = $("output");
+  const atual = parseInt(getComputedStyle(pre).fontSize);
+  pre.style.fontSize = Math.max(12, atual + v) + "px";
+}
+
+function abrirFormularioNovaMusica() {
+  editId = null;
+  $("modalTitulo").innerText = "Adicionar música";
+  $("modalNomeMusica").value = "";
+  $("modalNomeArtista").value = "";
+  $("modalCapo").value = "";
+  $("modalTom").value = "";
+  $("modalYoutube").value = "";
+  $("modalGenero").value = "";
+  $("modalPasta").value = "";
+  $("modalLetra").value = "";
+  $("modalForm").classList.add("visible");
+}
+
+function editarMusica(id) {
+  editId = id;
+  const m = (window.musicasOriginais || []).find(item => item.id === id);
+  if (!m) return;
+
+  $("modalTitulo").innerText = "Editar música";
+  $("modalNomeMusica").value = m.titulo || "";
+  $("modalNomeArtista").value = m.artista || "";
+  $("modalCapo").value = m.capo || "";
+  $("modalTom").value = m.tom || "";
+  $("modalYoutube").value = m.youtube || "";
+  $("modalGenero").value = m.genero || "";
+  $("modalPasta").value = m.pastaId || "";
+  $("modalLetra").value = m.musica || "";
+  $("modalForm").classList.add("visible");
 }
 
 function editarMusicaAberta() {
-  if (musicaAbertaId)
-    abrirFormulario(musicaAbertaId);
+  if (musicaAbertaId) editarMusica(musicaAbertaId);
+}
+
+function fecharFormulario() {
+  $("modalForm").classList.remove("visible");
+  editId = null;
+}
+
+async function criarPasta() {
+  const usuarioLogado = obterUsuarioAtual();
+  if (!usuarioLogado) {
+    alert("Faça login primeiro.");
+    return;
+  }
+
+  const nome = prompt("Nome da nova pasta:");
+  if (!nome) return;
+
+  await window.db.collection("pastas").add({
+    nome: nome.trim(),
+    uid: usuarioLogado.uid,
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  await buscarPastasOnlineOuOffline();
+  carregarPainelPastasIniciais();
+}
+
+async function criarSetlist() {
+  const usuarioLogado = obterUsuarioAtual();
+  if (!usuarioLogado) {
+    alert("Faça login primeiro.");
+    return;
+  }
+
+  const nome = prompt("Nome da nova setlist:");
+  if (!nome) return;
+
+  await window.db.collection("setlists").add({
+    nome: nome.trim(),
+    musicas: [],
+    uid: usuarioLogado.uid,
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  await buscarSetlistsOnlineOuOffline();
+  carregarPainelSetlistsIniciais();
 }
 
 function favoritarMusicaAberta() {
-  alert("Favoritos será ligado depois.");
+  alert("Favoritos será configurado depois.");
 }
 
 function copiarLinkMusica() {
   navigator.clipboard.writeText(location.href);
   alert("Link copiado.");
 }
+
+function filtrarMusicasPorGenero(genero) {
+  const lista = window.musicasOriginais || [];
+  const filtradas = genero ? lista.filter(m => m.genero === genero) : lista;
+  window.musicasOriginaisFiltradas = filtradas;
+  carregarTodasMusicas();
+}
+
+function filtrarTipoMusica() {
+  carregarTodasMusicas();
+}
+
+function adicionarMusicaAoGenero(genero) {
+  abrirFormularioNovaMusica();
+  $("modalGenero").value = genero;
+}
+
+function importarCifraColada() {
+  alert("Cole a cifra no campo de texto. A importação automática será configurada depois.");
+}
+
+function musicaAnteriorSetlist() {}
+function proximaMusicaSetlist() {}
+
+window.addEventListener("load", () => {
+  const box = document.querySelector("#modalForm .modal-box");
+  if (box) {
+    box.style.maxHeight = "90vh";
+    box.style.overflowY = "auto";
+  }
+});
