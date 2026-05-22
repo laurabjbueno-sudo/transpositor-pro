@@ -1,4 +1,4 @@
-const CACHE_NAME = "transpositor-pro-v41"; // v41 limpa de vez todos os testes com erro anteriores
+const CACHE_NAME = "transpositor-pro-v42"; // v42 limpa de vez todos os testes com erro anteriores
 
 const FILES_TO_CACHE = [
   "./",
