@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transpositor PRO</title>
+
+  <link rel="manifest" href="manifest.json">
+
+<link rel="icon" href="./icon-192.png" type="image/png">
+<link rel="shortcut icon" href="./icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+
+<meta name="theme-color" content="#0f172a">
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-soft: #020617;
+      --card: #111827;
+      --border: #1f2937;
+      --border-soft: #233044;
+      --text: #e5e7eb;
+      --text-soft: #94a3b8;
+      --accent: #22c55e;
+      --accent-dark: #052e16;
+      --danger: #b91c1c;
+      --secondary: #334155;
+      --shadow: 0 6px 18px rgba(0,0,0,.22);
+      --font-size-base: 16px;
+      --font-size-title: 24px;
+      --font-size-pre: 17px;
+      --header-height: 57px;
+    }
+
+    body.light-theme {
+      --bg: #f8fafc;
+      --bg-soft: #ffffff;
+      --card: #ffffff;
+      --border: #dbe4ee;
+      --border-soft: #e5e7eb;
+      --text: #0f172a;
+      --text-soft: #475569;
+      --shadow: 0 6px 18px rgba(15,23,42,.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: var(--font-size-base);
+      transition: background .2s ease, color .2s ease;
+    }
+
+    header {
+  position: sticky;
+  top: 0;
+  z-index: 1200;
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.genre-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.genre-tabs button {
+  white-space: nowrap;
+  border-radius: 999px;
+}
+
+.header-profile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-top-box {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.profile-top-box.visible {
+  display: flex;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+}
+
+.brand-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+
+  display: grid;
+  place-items: center;
+
+  position: relative;
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(34, 197, 94, 0.22) 0%,
+      rgba(124, 58, 237, 0.28) 100%
+    );
+
+  border: 1px solid rgba(255,255,255,.08);
+
+  box-shadow:
+    0 4px 12px rgba(124,58,237,.12),
+    0 4px 12px rgba(34,197,94,.12);
+
+  backdrop-filter: blur(10px);
+}
+
+.brand-icon::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(255,255,255,.14),
+      transparent 60%
+    );
+
+  pointer-events: none;
+}
+
+.brand-icon {
+  font-size: 22px;
+  color: #f8fafc;
+}
+
+.brand-title {
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--text-soft);
+  margin-top: 3px;
+}
+
+@media (max-width: 640px) {
+  .brand-title {
+    font-size: 15px;
+  }
+
+  .brand {
+    gap: 8px;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .brand-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    font-size: 20px;
+  }
+}
+
+
+.avatar-top {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.theme-toggle-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 17px;
+}
+
+#profileNameTop {
+  font-size: 14px;
+  font-weight: 700;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 46px;
+  min-width: 220px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: var(--shadow);
+  z-index: 1500;
+}
+
+.profile-dropdown.visible {
+  display: block;
+}
+
+.profile-email-top {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 1400;
+  display: flex;
+  gap: 8px;
+  background: rgba(2, 6, 23, 0.92);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 999px;
+  padding: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.bottom-nav.hidden {
+  transform: translateX(-50%) translateY(90px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bottom-nav {
+  transition: transform .25s ease, opacity .25s ease;
+}
+
+.bottom-nav button {
+  border-radius: 999px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+@media (max-width: 640px) {
+  .bottom-nav {
+    width: calc(100% - 24px);
+    justify-content: space-between;
+  }
+
+  .bottom-nav button {
+    flex: 1;
+    font-size: 13px;
+    padding: 10px 8px;
+  }
+
+
+  #profileNameTop {
+    display: none;
+  }
+}
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 14px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    .top-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .profile-box {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .profile-box.visible {
+      display: flex;
+    }
+
+    .avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      object-fit: cover;
+      background: var(--secondary);
+      border: 2px solid var(--border);
+    }
+
+    .profile-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .profile-name {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .profile-email {
+      font-size: 14px;
+      color: var(--text-soft);
+      word-break: break-word;
+    }
+
+    .auth-buttons,
+    .prefs-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 11px 12px;
+      margin-bottom: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      color: var(--text);
+      font-size: 16px;
+      outline: none;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+
+    textarea {
+      min-height: 220px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 12px;
+      background: var(--secondary);
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      transition: .18s ease;
+    }
+
+    button:hover {
+      filter: brightness(1.08);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: var(--accent-dark);
+      font-weight: 700;
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    button.secondary {
+      background: var(--secondary);
+      color: white;
+    }
+
+    .tone-buttons,
+    .result-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .prefs-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .prefs-group label {
+      display: block;
+      font-size: 14px;
+      color: var(--text-soft);
+      margin-bottom: 6px;
+    }
+
+    .song-meta {
+      margin-bottom: 12px;
+    }
+
+    .song-title-display {
+      font-size: var(--font-size-title);
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .song-artist-display {
+      font-size: 15px;
+      color: var(--text-soft);
+      margin-bottom: 14px;
+      word-break: break-word;
+    }
+
+     .song-capo-display {
+  font-size: 14px;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.youtube-box {
+  margin: 10px 0 14px 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+
+.youtube-box iframe {
+  width: 100%;
+  height: 190px;
+  border: 0;
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .youtube-box iframe {
+    height: 170px;
+  }
+}
+
+    .viewer-box {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      line-height: 1.65;
+      margin: 0;
+      font-size: var(--font-size-pre);
+      overflow-x: auto;
+      color: var(--text);
+    }
+
+    .acorde {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .search-hint {
+      font-size: 14px;
+      color: var(--text-soft);
+      margin-top: -2px;
+    }
+
+    .song-list {
+      display: none;
+      margin-top: 12px;
+    }
+
+    .song-list.visible {
+      display: block;
+    }
+
+    .song-item {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .song-item:last-child {
+      border-bottom: none;
+    }
+
+    .song-item-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .song-item-artist {
+      font-size: 14px;
+      color: var(--text-soft);
+      margin-top: 2px;
+      margin-bottom: 8px;
+    }
+
+    .song-item-author {
+      font-size: 13px;
+      color: var(--text-soft);
+      margin-bottom: 8px;
+    }
+
+    .empty-state {
+      color: var(--text-soft);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .logged-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      color: var(--accent);
+      border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 1400;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-overlay.visible {
+      display: flex;
+    }
+
+    .modal-box {
+      width: 100%;
+      max-width: 640px;
+      background: var(--card);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      border: 1px solid var(--border);
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+.panel-overlay {
+  display: none;
+  position: fixed;
+  inset: var(--header-height) 0 0 0;
+  background: rgba(0,0,0,.48);
+  z-index: 1250;
+}
+
+.panel-overlay.visible {
+  display: block;
+}
+
+.bottom-sheet-panel {
+  position: fixed;
+  left: 50%;
+  bottom: -100%;
+  transform: translateX(-50%);
+  width: min(720px, calc(100% - 18px));
+  max-height: calc(100vh - var(--header-height) - 22px);
+  overflow-y: auto;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 22px 22px 0 0;
+  padding: 14px;
+  z-index: 1300;
+  box-shadow: 0 -16px 40px rgba(0,0,0,.35);
+  transition: bottom .28s ease;
+}
+
+.bottom-sheet-panel.visible {
+  bottom: 0;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+    .layout {
+      display: flex;
+      min-height: calc(100vh - var(--header-height));
+    }
+
+
+    .main-content .container {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+    @media (max-width: 640px) {
+      .song-title-display {
+        font-size: calc(var(--font-size-title) - 3px);
+      }
+
+      pre {
+        font-size: calc(var(--font-size-pre) - 2px);
+      }
+
+      .top-actions {
+        align-items: flex-start;
+      }
+
+      .auth-buttons,
+      .prefs-actions {
+        width: 100%;
+        margin-left: 0;
+      }
+    }
+
+.viewer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.viewer-font-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (min-width: 900px) {
+  .main-content {
+    width: 100%;
+  }
+
+  .main-content .container {
+  max-width: 1180px;
+  width: 100%;
+  padding: 32px 32px 110px 32px;
+}
+
+  .main-content .card {
+    min-height: calc(100vh - 120px);
+  }
+
+.main-content .card {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+  .viewer-box {
+    overflow-x: auto;
+  }
+
+  pre {
+    white-space: pre;
+  }
+}
+
+@media (max-width: 899px) {
+  pre {
+    white-space: pre-wrap;
+  }
+}
+
+@media (max-width: 899px) {
+  .main-content .container {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .main-content .card {
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  .viewer-box {
+  padding: 8px 4px;
+}
+
+  pre {
+    font-size: calc(var(--font-size-pre) - 3px);
+    line-height: 1.55;
+  }
+}
+
+@media (min-width: 900px) {
+  .youtube-box {
+  width: 320px;
+  max-width: 320px;
+  margin: 4px 0 18px 0;
+}
+
+  .youtube-box iframe {
+  height: 180px;
+ }
+}
+
+textarea,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+pre {
+  tab-size: 4;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+@media (max-width: 899px) {
+  .main-content .container {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .main-content .card {
+    border-radius: 0;
+    padding: 8px 4px;
+  }
+
+  .viewer-box {
+    border-radius: 8px;
+    padding: 8px 2px;
+  }
+
+  pre {
+    font-size: calc(var(--font-size-pre) - 3px);
+    line-height: 1.5;
+  }
+}
+
+body.modo-palco header,
+body.modo-palco .bottom-nav,
+body.modo-palco .viewer-actions,
+body.modo-palco .tone-buttons,
+body.modo-palco .song-artist-display,
+body.modo-palco .song-capo-display,
+body.modo-palco .youtube-box {
+  display: none !important;
+}
+
+body.modo-palco .main-content .container {
+  max-width: 100%;
+  padding: 0;
+}
+
+body.modo-palco .card {
+  border-radius: 0;
+  border: none;
+  min-height: 100vh;
+  padding: 12px;
+}
+
+body.modo-palco .viewer-box {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+body.modo-palco pre {
+  font-size: 34px !important;
+  line-height: 1.9;
+  padding-bottom: 50vh;
+}
+
+body.modo-palco .song-title-display {
+  font-size: 36px !important;
+  margin-bottom: 20px;
+}
+
+@media (orientation: landscape) and (min-width: 700px) {
+  body.modo-palco .card {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  body.modo-palco pre {
+    font-size: 30px !important;
+    line-height: 1.75;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  body.modo-palco .song-title-display {
+    text-align: center;
+    font-size: 34px !important;
+  }
+}
+
+body.modo-palco #controlePalco {
+  background: rgba(2, 6, 23, .88);
+  border: 1px solid var(--border);
+  padding: 8px;
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+}
+
+body.light-theme.modo-palco #controlePalco {
+  background: rgba(255, 255, 255, .88);
+}
+
+  </style>
+</head>
+<body>
+  <header>
+  <div class="brand">
+  <div class="brand-icon">
+  <img src="./icon-192.png" alt="Transpositor PRO">
+</div>
+  <div class="brand-text">
+    <div class="brand-title">Transpositor PRO</div>
+    <div class="brand-subtitle">Cifras e tons</div>
+  </div>
+</div>
+
+  <div class="header-profile">
+  <button id="themeToggleBtn" class="theme-toggle-btn" onclick="alternarTemaRapido()" title="Alternar tema">☀️</button>
+  <button id="loginBtn" onclick="loginGoogle()">Login Google</button>
+
+    <div id="profileTopBox" class="profile-top-box" onclick="toggleProfileMenu()">
+      <img id="profilePhotoTop" class="avatar-top" alt="Foto do perfil">
+      <span id="profileNameTop"></span>
+    </div>
+
+    <div id="profileDropdown" class="profile-dropdown">
+  <div id="profileEmailTop" class="profile-email-top"></div>
+
+  <label style="font-size:13px;color:var(--text-soft);display:block;margin-bottom:6px;">
+    Cor principal
+  </label>
+
+  <select id="accentSelect" onchange="aplicarCorSelecionada()">
+    <option value="#22c55e">Verde</option>
+    <option value="#3b82f6">Azul</option>
+    <option value="#a855f7">Roxo</option>
+    <option value="#f97316">Laranja</option>
+    <option value="#ef4444">Vermelho</option>
+    <option value="#eab308">Amarelo</option>
+    <option value="#14b8a6">Turquesa</option>
+    <option value="#ec4899">Rosa</option>
+  </select>
+
+<button onclick="exportarBackup()">Exportar backup</button>
+<button onclick="importarBackup()">Importar backup</button>  
+<button onclick="logout()">Sair</button>
+</div>
+</header>
+
+  <div id="panelOverlay" class="panel-overlay" onclick="fecharPainel()"></div>
+
+<div class="layout">
+  <section id="painelBusca" class="bottom-sheet-panel">
+    <div class="panel-header">
+      <div class="section-title" style="margin-bottom:0;">Buscar músicas</div>
+      <button class="secondary" onclick="fecharPainel()">Fechar</button>
+    </div>
+
+    <div class="card">
+      <div class="top-actions">
+        <div class="section-title" style="margin-bottom:0;">Pastas</div>
+        <button class="primary" onclick="criarPasta()">+ Nova pasta</button>
+      </div>
+
+      <select id="filtroPasta" onchange="carregarLista()">
+        <option value="">Todas as músicas</option>
+      </select>
+
+      <div class="search-hint">As pastas podem ser vistas por todos os usuários logados.</div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Pesquisar</div>
+      <input id="busca" placeholder="Pesquisar música, artista, trecho, tom, gênero..." oninput="carregarLista()"
+  autocomplete="off"
+  spellcheck="false"
+>
+      <div class="search-hint">A lista aparece quando você digita algo na busca.</div>
+
+      <div id="lista" class="song-list"></div>
+      <div id="listaVazia" class="empty-state" style="display:none;"></div>
+    </div>
+  </section>
+
+<section id="painelPastas" class="bottom-sheet-panel">
+  <div class="panel-header">
+    <div class="section-title" style="margin-bottom:0;">Pastas</div>
+    <button class="secondary" onclick="fecharPainel()">Fechar</button>
+  </div>
+
+  <div class="card">
+    <div class="top-actions">
+      <div class="section-title" style="margin-bottom:0;">Minhas pastas</div>
+      <button class="primary" onclick="criarPasta()">+ Nova pasta</button>
+    </div>
+
+    <div id="listaPastas" class="song-list visible"></div>
+    <div id="listaPastasVazia" class="empty-state" style="display:none;"></div>
+  </div>
+
+  <div class="card">
+    <div id="tituloMusicasDaPasta" class="section-title">Músicas da pasta</div>
+    <div id="listaMusicasDaPasta" class="song-list visible"></div>
+    <div id="listaMusicasDaPastaVazia" class="empty-state" style="display:none;"></div>
+  </div>
+</section>
+
+  <section id="painelMusicas" class="bottom-sheet-panel">
+  <div class="panel-header">
+    <div class="section-title" style="margin-bottom:0;">Todas as músicas</div>
+    <button class="secondary" onclick="fecharPainel()">Fechar</button>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Filtrar por gênero</div>
+
+    <div class="genre-tabs">
+  <button onclick="filtrarMusicasPorGenero('')">Todas</button>
+
+  <button onclick="filtrarMusicasPorGenero('Pop')">Pop</button>
+  <button onclick="adicionarMusicaAoGenero('Pop')">+ Pop</button>
+
+  <button onclick="filtrarMusicasPorGenero('Sertanejo')">Sertanejo</button>
+  <button onclick="adicionarMusicaAoGenero('Sertanejo')">+ Sertanejo</button>
+
+  <button onclick="filtrarMusicasPorGenero('Pagode')">Pagode</button>
+  <button onclick="adicionarMusicaAoGenero('Pagode')">+ Pagode</button>
+
+  <button onclick="filtrarMusicasPorGenero('Católicas')">Católicas</button>
+  <button onclick="adicionarMusicaAoGenero('Católicas')">+ Católicas</button>
+
+  <button onclick="filtrarMusicasPorGenero('MPB')">MPB</button>
+  <button onclick="adicionarMusicaAoGenero('MPB')">+ MPB</button>
+
+  <button onclick="filtrarMusicasPorGenero('Forró/Piseiro')">Forró/Piseiro</button>
+  <button onclick="adicionarMusicaAoGenero('Forró/Piseiro')">+ Forró</button>
+
+  <button onclick="filtrarMusicasPorGenero('Modão')">Modão</button>
+  <button onclick="adicionarMusicaAoGenero('Modão')">+ Modão</button>
+</div>
+
+    <input id="buscaTodasMusicas" placeholder="Buscar por música, artista, trecho, tom, gênero..." oninput="carregarTodasMusicas()">
+
+<div class="genre-tabs">
+  <button onclick="filtrarTipoMusica('todas')">Todas</button>
+  <button onclick="filtrarTipoMusica('favoritas')">⭐ Favoritas</button>
+  <button onclick="filtrarTipoMusica('recentes')">🕘 Recentes</button>
+</div>
+
+    <div id="listaTodasMusicas" class="song-list visible"></div>
+    <div id="listaTodasMusicasVazia" class="empty-state" style="display:none;"></div>
+  </div>
+</section>
+
+<section id="painelSetlists" class="bottom-sheet-panel">
+  <div class="panel-header">
+    <div class="section-title" style="margin-bottom:0;">Setlists / Repertórios</div>
+    <button class="secondary" onclick="fecharPainel()">Fechar</button>
+  </div>
+
+  <div class="card">
+    <div class="top-actions">
+      <div class="section-title" style="margin-bottom:0;">Meus repertórios</div>
+      <button class="primary" onclick="criarSetlist()">+ Nova setlist</button>
+    </div>
+
+    <div id="listaSetlists" class="song-list visible"></div>
+    <div id="listaSetlistsVazia" class="empty-state" style="display:none;"></div>
+  </div>
+
+  <div class="card">
+    <div id="tituloMusicasDaSetlist" class="section-title">Músicas da setlist</div>
+    <div id="listaMusicasDaSetlist" class="song-list visible"></div>
+    <div id="listaMusicasDaSetlistVazia" class="empty-state" style="display:none;"></div>
+  </div>
+</section>
+
+  <main class="main-content">
+      <div class="container">
+        <div class="card">
+          <div class="song-meta">
+  <div id="displayTitulo" class="song-title-display">Nenhuma música aberta</div>
+  <div id="displayArtista" class="song-artist-display"></div>
+  <div id="displayCapo" class="song-capo-display"></div>
+  <div id="displayTom" class="song-capo-display"></div>
+
+  <div id="youtubeBox" class="youtube-box" style="display:none;">
+    <iframe
+  id="youtubePlayer"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowfullscreen
+></iframe>
+  </div>
+</div>
+
+          <div class="tone-buttons" style="margin-bottom: 14px;">
+            <button onclick="transpor(-1)">-1 tom</button>
+            <button onclick="transpor(1)">+1 tom</button>
+            <button onclick="resetarTom()">Resetar tom</button>
+            <button onclick="musicaAnteriorSetlist()">⬅️ Anterior</button>
+            <button onclick="proximaMusicaSetlist()">Próxima ➡️</button>
+          </div>
+
+          <div class="viewer-box">
+  <div class="viewer-actions">
+  <div class="viewer-font-actions">
+    <button onclick="alterarFonte(-1)">A−</button>
+    <button onclick="alterarFonte(1)">A+</button>
+    <button onclick="toggleModoPalco()">🎤</button>
+  </div>
+
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+  <button class="secondary" onclick="favoritarMusicaAberta()">⭐ Favoritar</button>
+  <button class="secondary" onclick="copiarLinkMusica()">🔗 Link</button>
+  <button class="secondary" onclick="editarMusicaAberta()">Editar cifra</button>
+</div>
+
+  <pre id="output">Abra ou digite uma música para visualizar aqui.</pre>
+                        </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="modalForm" class="modal-overlay">
+    <div class="modal-box">
+      <div id="modalTitulo" class="modal-title">Adicionar música</div>
+
+      <input id="modalNomeMusica" placeholder="Nome da música">
+<input id="modalNomeArtista" placeholder="Nome do artista">
+<input id="modalCapo" type="number" min="0" max="12" placeholder="Capo, se houver. Ex: 2">
+<input id="modalTom" placeholder="Tom da música. Ex: C, D, Em, F#m">
+<input id="modalYoutube" placeholder="Link do YouTube, se houver">
+
+<select id="modalGenero">
+  <option value="">Gênero</option>
+  <option value="Pop">Pop</option>
+  <option value="Sertanejo">Sertanejo</option>
+  <option value="Pagode">Pagode</option>
+  <option value="Católicas">Católicas</option>
+  <option value="MPB">MPB</option>
+  <option value="Forró/Piseiro">Forró/Piseiro</option>
+  <option value="Modão">Modão</option>
+</select>
+
+<select id="modalPasta">
+  <option value="">Sem pasta</option>
+</select>
+
+<button class="secondary" onclick="importarCifraColada()">Importar dados da cifra</button>
+
+<textarea
+  id="modalLetra"
+  placeholder="Cole sua cifra aqui..."
+  spellcheck="false"
+  autocapitalize="off"
+  autocomplete="off"
+  autocorrect="off"
+></textarea>
+
+      <div class="modal-actions">
+        <button class="primary" onclick="salvarModal()">Salvar</button>
+        <button class="secondary" onclick="fecharFormulario()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+<div id="bottomNav" class="bottom-nav">
+  <button onclick="abrirPainel('buscar')">🔎 Buscar</button>
+  <button onclick="abrirPainel('pastas')">📁 Pastas</button>
+  <button onclick="abrirPainel('musicas')">🎼 Músicas</button>
+  <button onclick="abrirPainel('setlists')">📋 Setlists</button>
+  <button onclick="abrirFormularioNovaMusica()">➕ Add</button>
+</div>
+
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script src="config-firebase.js"></script>
+  <script src="motor-musical.js"></script>
+  <script src="app.js"></script>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js")
+          .then(reg => console.log("Service Worker registrado com sucesso!", reg.scope))
+          .catch(err => console.error("Erro ao registrar o Service Worker:", err));
+      });
+    }
+
+  </script>
+</body>
+</html>
