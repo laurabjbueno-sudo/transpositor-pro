@@ -442,15 +442,19 @@ atualizarCabecalhoMusica(
     async function login() {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-
-    provider.setCustomParameters({
-      prompt: "select_account"
-    });
+    provider.setCustomParameters({ prompt: "select_account" });
 
     await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-    const result = await auth.signInWithPopup(provider);
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+    if (isMobile) {
+      localStorage.setItem("loginRedirectPendente", "sim");
+      await auth.signInWithRedirect(provider);
+      return;
+    }
+
+    const result = await auth.signInWithPopup(provider);
     console.log("Login realizado:", result.user.email);
 
   } catch (erro) {
@@ -1116,83 +1120,66 @@ function filtrarTipoMusica(tipo) {
 }
 
 async function carregarTodasMusicas() {
-  if (!user && !estaOffline()) {
-    listaTodasMusicas.innerHTML = "";
-    listaTodasMusicasVazia.textContent = "Faça login para ver as músicas.";
-    listaTodasMusicasVazia.style.display = "block";
-    return;
-  }
 
-  listaTodasMusicas.innerHTML = "Carregando músicas...";
-  listaTodasMusicasVazia.style.display = "none";
+  const container = document.getElementById("listaTodasMusicas");
+  const vazio = document.getElementById("listaTodasMusicasVazia");
 
-  const termo = normalizarTexto(buscaTodasMusicas.value || "");
-  const musicasBase = await buscarMusicasOnlineOuOffline();
+  if (!container) return;
 
-  if (!musicasBase.length) {
-    listaTodasMusicas.innerHTML = "";
-    listaTodasMusicasVazia.textContent = estaOffline()
-      ? "Nenhuma música salva offline. Abra o app com internet e clique em Músicas uma vez."
-      : "Nenhuma música encontrada.";
-    listaTodasMusicasVazia.style.display = "block";
-    return;
-  }
+  const musicas = await buscarMusicasOnlineOuOffline();
 
-  const musicas = [];
-const favoritos = obterFavoritos();
-const recentes = obterRecentes();
+  container.innerHTML = "";
+  container.style.display = "block";
 
-  musicasBase.forEach(m => {
-    const genero = m.genero || "";
+  if (!musicas || !musicas.length) {
 
-const generoMatch = !generoSelecionado || genero === generoSelecionado;
-const termoMatch = musicaCombinaComBusca(m, termo);
-    
-    const tipoMatch =
-  tipoFiltroMusica === "todas" ||
-  (tipoFiltroMusica === "favoritas" && favoritos.includes(m.id)) ||
-  (tipoFiltroMusica === "recentes" && recentes.includes(m.id));
-
-    if (generoMatch && termoMatch && tipoMatch) {
-      musicas.push(m);
+    if (vazio) {
+      vazio.style.display = "block";
+      vazio.innerText = "Nenhuma música encontrada.";
     }
-  });
 
-  musicas.sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "pt-BR"));
-
-  listaTodasMusicas.innerHTML = "";
-
-  if (!musicas.length) {
-    listaTodasMusicasVazia.textContent = "Nenhuma música encontrada.";
-    listaTodasMusicasVazia.style.display = "block";
     return;
   }
+
+  if (vazio) vazio.style.display = "none";
 
   musicas.forEach(m => {
-    const div = document.createElement("div");
-    div.className = "song-item";
 
-    const podeEditar = podeEditarMusica(m);
-    const podeExcluir = podeExcluirMusica(m);
+    const item = document.createElement("div");
 
-    div.innerHTML = `
-      <div class="song-item-title">${escapeHtml(m.titulo || "Sem título")}</div>
-      <div class="song-item-artist">${escapeHtml(m.artista || "Artista não informado")}</div>
-      <div class="song-item-author">Gênero: ${escapeHtml(m.genero || "Não informado")}</div>
-      <div class="song-item-author">Pasta: ${escapeHtml(m.pastaNome || "Sem pasta")}</div>
+    item.className = "song-item";
 
-      <div class="result-actions">
-        <button onclick="abrir('${m.id}'); fecharPainel();">Abrir</button>
-        ${podeEditar ? `<button onclick="editar('${m.id}'); fecharPainel();">Editar</button>` : ""}
-        ${podeEditar ? `<button onclick="moverParaPasta('${m.id}')">Mover pasta</button>` : ""}
-        ${podeExcluir ? `<button class="danger" onclick="excluirMusica('${m.id}')">Excluir</button>` : ""}
+    item.innerHTML = `
+      <div class="song-item-title">
+        ${m.titulo || "Sem título"}
+      </div>
+
+      <div class="song-item-artist">
+        ${m.artista || ""}
+      </div>
+
+      <div style="
+        display:flex;
+        gap:8px;
+        margin-top:8px;
+      ">
+
+        <button onclick="abrir('${m.id}')">
+          Abrir
+        </button>
+
+        <button onclick="editarMusica('${m.id}')">
+          Editar
+        </button>
+
       </div>
     `;
 
-    listaTodasMusicas.appendChild(div);
-  });
-}
+    container.appendChild(item);
 
+  });
+
+}
 async function carregarPainelPastas() {
   if (!user && !estaOffline()) {
     listaPastas.innerHTML = "";
@@ -2576,6 +2563,21 @@ async function alternarTemaRapido() {
   aplicarPreferenciasNaTela(prefs);
 }
 
+if (localStorage.getItem("loginRedirectPendente") === "sim") {
+  auth.getRedirectResult()
+    .then((result) => {
+      localStorage.removeItem("loginRedirectPendente");
+
+      if (result && result.user) {
+        console.log("Login mobile concluído:", result.user.email);
+      }
+    })
+    .catch((erro) => {
+      localStorage.removeItem("loginRedirectPendente");
+      console.error("Erro no retorno mobile:", erro);
+      alert("Erro no retorno mobile: " + erro.code + " - " + erro.message);
+    });
+}
 
     auth.onAuthStateChanged(async (u) => {
       user = u || null;
