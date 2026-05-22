@@ -441,37 +441,25 @@ atualizarCabecalhoMusica(
 
     async function login() {
   try {
-    const authRef = window.auth || auth;
     const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: "select_account" });
 
-    await authRef.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    const isMobile =
+      /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
 
-    const resultado = await authRef.signInWithPopup(provider);
-    console.log("Login realizado:", resultado.user?.email || resultado.user?.uid);
-  } catch (erro) {
-    console.error("Erro no login:", erro);
-
-    if (erro && (erro.code === "auth/popup-blocked" || erro.code === "auth/cancelled-popup-request")) {
-      try {
-        const authRef = window.auth || auth;
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: "select_account" });
-        await authRef.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-        await authRef.signInWithRedirect(provider);
-        return;
-      } catch (erroRedirect) {
-        console.error("Erro no redirect:", erroRedirect);
-        alert("Erro no login: " + erroRedirect.message);
-        return;
-      }
+    if (isMobile) {
+      await auth.signInWithRedirect(provider);
+      return;
     }
 
-    alert("Erro no login: " + (erro?.message || erro));
+    await auth.signInWithPopup(provider);
+
+  } catch (erro) {
+    console.error("Erro no login:", erro);
+    alert("Erro no login: " + erro.message);
   }
 }
 
-function loginGoogle() {
+async function loginGoogle() {
   return login();
 }
 
@@ -2588,6 +2576,16 @@ async function alternarTemaRapido() {
   aplicarPreferenciasNaTela(prefs);
 }
 
+auth.getRedirectResult()
+  .then((result) => {
+    if (result && result.user) {
+      console.log("Login por redirecionamento concluído:", result.user.email);
+    }
+  })
+  .catch((erro) => {
+    console.error("Erro no retorno do login:", erro);
+    alert("Erro no retorno do login: " + erro.message);
+  });
 
     auth.onAuthStateChanged(async (u) => {
       user = u || null;
