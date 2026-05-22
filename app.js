@@ -3009,3 +3009,43 @@ window.addEventListener("online", async () => {
     document.body.classList.remove("tem-setlist-ativa");
   });
 })();
+
+function mostrarDebugLogin() {
+  const box = document.createElement("div");
+  box.style.position = "fixed";
+  box.style.inset = "10px";
+  box.style.zIndex = "99999";
+  box.style.background = "#111827";
+  box.style.color = "#e5e7eb";
+  box.style.padding = "12px";
+  box.style.borderRadius = "12px";
+  box.style.overflow = "auto";
+  box.style.fontSize = "13px";
+  box.style.whiteSpace = "pre-wrap";
+
+  const usuario = firebase.auth().currentUser;
+
+  box.textContent =
+    "DEBUG LOGIN\n\n" +
+    "URL: " + location.href + "\n\n" +
+    "Host: " + location.hostname + "\n\n" +
+    "UserAgent: " + navigator.userAgent + "\n\n" +
+    "Online: " + navigator.onLine + "\n\n" +
+    "auth.currentUser: " + (usuario ? usuario.email : "null") + "\n\n" +
+    "localStorage loginRedirectPendente: " + localStorage.getItem("loginRedirectPendente") + "\n\n" +
+    "authDomain: " + firebase.app().options.authDomain + "\n\n";
+
+  const fechar = document.createElement("button");
+  fechar.textContent = "Fechar";
+  fechar.style.marginTop = "12px";
+  fechar.onclick = () => box.remove();
+
+  box.appendChild(fechar);
+  document.body.appendChild(box);
+}
+
+window.addEventListener("load", () => {
+  if (location.search.includes("debug=1")) {
+    setTimeout(mostrarDebugLogin, 1000);
+  }
+});
