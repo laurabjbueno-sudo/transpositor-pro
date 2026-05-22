@@ -442,32 +442,20 @@ atualizarCabecalhoMusica(
     async function login() {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
+
     provider.setCustomParameters({
       prompt: "select_account"
     });
 
-    await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    await firebase.auth().signInWithPopup(provider);
+    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+    const result = await auth.signInWithPopup(provider);
+
+    console.log("Login realizado:", result.user.email);
 
   } catch (erro) {
     console.error("Erro no login:", erro);
-
-    if (
-      erro.code === "auth/popup-blocked" ||
-      erro.code === "auth/popup-closed-by-user" ||
-      erro.code === "auth/cancelled-popup-request"
-    ) {
-      try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        await firebase.auth().signInWithRedirect(provider);
-      } catch (erroRedirect) {
-        console.error("Erro no redirect:", erroRedirect);
-        alert("Erro no login: " + erroRedirect.message);
-      }
-      return;
-    }
-
-    alert("Erro no login: " + erro.message);
+    alert("Erro no login: " + erro.code + " - " + erro.message);
   }
 }
 
@@ -2588,16 +2576,6 @@ async function alternarTemaRapido() {
   aplicarPreferenciasNaTela(prefs);
 }
 
-auth.getRedirectResult()
-  .then((result) => {
-    if (result && result.user) {
-      console.log("Login por redirecionamento concluído:", result.user.email);
-    }
-  })
-  .catch((erro) => {
-    console.error("Erro no retorno do login:", erro);
-    alert("Erro no retorno do login: " + erro.message);
-  });
 
     auth.onAuthStateChanged(async (u) => {
       user = u || null;
