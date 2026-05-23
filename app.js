@@ -3448,3 +3448,199 @@ window.addEventListener("load", async () => {
   }
 
 });
+
+/* ===== CORREÇÃO EMERGENCIAL: ABRIR MÚSICAS + SETLISTS ===== */
+
+let intervaloRolagemAutoFinal = null;
+
+function mostrarCifra() {
+  const inicio = document.getElementById("telaInicio");
+  const cifra = document.getElementById("telaCifra");
+
+  if (inicio) inicio.style.display = "none";
+  if (cifra) cifra.style.display = "block";
+}
+
+async function abrir(id) {
+  mostrarCifra();
+
+  let m = null;
+
+  try {
+    const doc = await db.collection("musicas").doc(id).get();
+    if (doc.exists) m = { id: doc.id, ...doc.data() };
+  } catch {}
+
+  if (!m) {
+    m = carregarMusicasOffline().find(x => x.id === id);
+  }
+
+  if (!m) {
+    alert("Música não encontrada.");
+    return;
+  }
+
+  musicaAbertaId = id;
+  original = m.musica || "";
+  semitons = 0;
+
+  salvarRecente(id);
+
+  atualizarCabecalhoMusica(
+    m.titulo || "",
+    m.artista || "",
+    m.capo || "",
+    m.youtube || "",
+    m.tom || ""
+  );
+
+  atualizarVisualizacao();
+  fecharPainel();
+
+  window.scrollTo(0, 0);
+}
+
+async function carregarPainelSetlists() {
+  listaSetlists.innerHTML = "Carregando setlists...";
+  listaSetlistsVazia.style.display = "none";
+
+  const setlists = await buscarSetlistsOnlineOuOffline();
+
+  const todas = setlists.sort((a, b) =>
+    (a.nome || "").localeCompare(b.nome || "", "pt-BR")
+  );
+
+  listaSetlists.innerHTML = "";
+
+  if (!todas.length) {
+    listaSetlistsVazia.textContent = "Nenhuma setlist criada ainda.";
+    listaSetlistsVazia.style.display = "block";
+    return;
+  }
+
+  todas.forEach(setlist => {
+    const div = document.createElement("div");
+    div.className = "song-item";
+
+    div.innerHTML = `
+      <div class="song-item-title">📋 ${escapeHtml(setlist.nome || "Setlist")}</div>
+      <div class="song-item-author">Músicas: ${(setlist.musicas || []).length}</div>
+
+      <div class="result-actions">
+        <button onclick="abrirSetlist('${setlist.id}')">Abrir</button>
+        <button onclick="adicionarMusicaNaSetlist('${setlist.id}')">Add músicas</button>
+        <button class="danger" onclick="selecionarRemoverMusicasDaSetlist('${setlist.id}')">Remover várias</button>
+      </div>
+    `;
+
+    listaSetlists.appendChild(div);
+  });
+}
+
+async function abrirSetlist(setlistId) {
+  const setlists = await buscarSetlistsOnlineOuOffline();
+  const setlist = setlists.find(s => s.id === setlistId);
+
+  if (!setlist) {
+    alert("Setlist não encontrada.");
+    return;
+  }
+
+  localStorage.setItem("setlistEmAndamentoId", setlistId);
+
+  tituloMusicasDaSetlist.innerHTML = `
+    Músicas em: ${escapeHtml(setlist.nome || "Setlist")}
+  `;
+
+  listaMusicasDaSetlist.innerHTML = "Carregando músicas...";
+  listaMusicasDaSetlistVazia.style.display = "none";
+
+  const musicasBase = await buscarMusicasOnlineOuOffline();
+
+  setlistAtualIds = setlist.musicas || [];
+  setlistAtualIndice = -1;
+
+  const musicas = setlistAtualIds
+    .map(id => musicasBase.find(m => m.id === id))
+    .filter(Boolean);
+
+  listaMusicasDaSetlist.innerHTML = "";
+
+  if (!musicas.length) {
+    listaMusicasDaSetlistVazia.textContent = "Nenhuma música nesta setlist.";
+    listaMusicasDaSetlistVazia.style.display = "block";
+    return;
+  }
+
+  document.body.classList.add("tem-setlist-ativa");
+
+  musicas.forEach((m, index) => {
+    const div = document.createElement("div");
+    div.className = "song-item";
+
+    div.innerHTML = `
+      <div class="song-item-title">${index + 1}. ${escapeHtml(m.titulo || "Sem título")}</div>
+      <div class="song-item-artist">${escapeHtml(m.artista || "")}</div>
+
+      <div class="result-actions">
+        <button onclick="abrirMusicaDaSetlist('${m.id}')">Abrir</button>
+        <button onclick="removerMusicaDaSetlist('${setlistId}', '${m.id}')">Remover</button>
+      </div>
+    `;
+
+    listaMusicasDaSetlist.appendChild(div);
+  });
+}
+
+async function abrirMusicaDaSetlist(id) {
+  setlistAtualIndice = setlistAtualIds.indexOf(id);
+  document.body.classList.add("tem-setlist-ativa");
+  await abrir(id);
+}
+
+function toggleRolagemAutomatica() {
+  if (scrollAutomatico) {
+    pararRolagemAutomatica();
+  } else {
+    iniciarRolagemAutomatica();
+  }
+}
+
+function iniciarRolagemAutomatica() {
+  pararRolagemAutomatica();
+
+  scrollAutomatico = true;
+
+  const btn1 = document.getElementById("btnAutoScroll");
+  const btn2 = document.getElementById("btn-scroll-palco");
+
+  if (btn1) btn1.innerText = "⏸ Pausar";
+  if (btn2) btn2.innerText = "⏸";
+
+  intervaloRolagemAutoFinal = setInterval(() => {
+    window.scrollBy(0, velocidadeRolagem || 2);
+  }, 40);
+}
+
+function pararRolagemAutomatica() {
+  scrollAutomatico = false;
+
+  if (intervaloRolagemAutoFinal) {
+    clearInterval(intervaloRolagemAutoFinal);
+    intervaloRolagemAutoFinal = null;
+  }
+
+  const btn1 = document.getElementById("btnAutoScroll");
+  const btn2 = document.getElementById("btn-scroll-palco");
+
+  if (btn1) btn1.innerText = "▶ Rolar";
+  if (btn2) btn2.innerText = "▶";
+}
+
+function aumentarVelocidadeRolagem() {
+  velocidadeRolagem = Math.min(10, (velocidadeRolagem || 2) + 1);
+}
+
+function diminuirVelocidadeRolagem() {
+  velocidadeRolagem = Math.max(1, (velocidadeRolagem || 2) - 1);
+}
