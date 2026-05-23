@@ -3240,3 +3240,150 @@ async function aplicarFundoSelecionado() {
 window.addEventListener("load", () => {
   aplicarPreferenciasNaTela(obterPreferencias());
 });
+
+/* ===== AJUSTES: E7M, QUEBRA RESPONSIVA, PALCO E PAINÉIS ===== */
+
+const regexAcordeCompletoCorrigido =
+  /^([A-G](?:#|b)?)(?:maj7|maj|min|m|M|7M|6M|9M|11M|13M|dim|aug|sus|add|alt|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?(?:[#b+\-]\d+)?(?:\/[A-G](?:#|b)?)?$/;
+
+function linhaPareceCifra(linha) {
+  const texto = String(linha || "").trim();
+  if (!texto) return false;
+
+  const palavras = texto.split(/\s+/);
+
+  const acordes = palavras.filter(p => {
+    const limpa = p.replace(/[|,;.]/g, "");
+    return regexAcordeCompletoCorrigido.test(limpa);
+  });
+
+  const proporcao = acordes.length / palavras.length;
+
+  return acordes.length >= 1 && (proporcao >= 0.35 || palavras.length <= 8);
+}
+
+function processarLinhaComAcordes(linha, passos) {
+  return linha.replace(
+    /(^|[\s([{|])([A-G](?:#|b)?(?:maj7|maj|min|m|M|7M|6M|9M|11M|13M|dim|aug|sus|add|alt|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?(?:[#b+\-]\d+)?(?:\/[A-G](?:#|b)?)?)(?=$|[\s)\]}|.,;:])/g,
+    (match, antes, acorde) => `${antes}<span class="acorde">${transporAcorde(acorde, passos)}</span>`
+  );
+}
+
+function deveUsarQuebraResponsiva() {
+  const telaPequena = window.innerWidth <= 760;
+  const palcoMobile = document.body.classList.contains("modo-palco") && window.innerWidth <= 900;
+  return telaPequena || palcoMobile;
+}
+
+function dividirLinha(texto, limite) {
+  const partes = [];
+  let resto = String(texto || "");
+
+  while (resto.length > limite) {
+    let corte = resto.lastIndexOf(" ", limite);
+    if (corte < 12) corte = limite;
+
+    partes.push(resto.slice(0, corte));
+    resto = resto.slice(corte).trimStart();
+  }
+
+  partes.push(resto);
+  return partes;
+}
+
+function processarResponsivo(texto, passos) {
+  const linhas = String(texto || "").split("\n");
+  const resultado = [];
+
+  const limite =
+    document.body.classList.contains("modo-palco")
+      ? 28
+      : window.innerWidth <= 380
+        ? 28
+        : 34;
+
+  for (let i = 0; i < linhas.length; i++) {
+    const linha = linhas[i] || "";
+    const proxima = linhas[i + 1] || "";
+
+    if (linhaPareceCifra(linha) && proxima && !linhaPareceCifra(proxima)) {
+      const blocosLetra = dividirLinha(proxima, limite);
+      let pos = 0;
+
+      blocosLetra.forEach(blocoLetra => {
+        const parteCifra = linha.slice(pos, pos + blocoLetra.length);
+
+        resultado.push(processarLinhaComAcordes(escapeHtml(parteCifra), passos));
+        resultado.push(escapeHtml(blocoLetra));
+
+        pos += blocoLetra.length + 1;
+      });
+
+      i++;
+      continue;
+    }
+
+    if (!linhaPareceCifra(linha) && linha.length > limite) {
+      dividirLinha(linha, limite).forEach(parte => {
+        resultado.push(escapeHtml(parte));
+      });
+      continue;
+    }
+
+    resultado.push(
+      linhaPareceCifra(linha)
+        ? processarLinhaComAcordes(escapeHtml(linha), passos)
+        : escapeHtml(linha)
+    );
+  }
+
+  return resultado.join("\n");
+}
+
+function atualizarVisualizacao() {
+  if (!original.trim()) {
+    output.textContent = "Abra ou digite uma música para visualizar aqui.";
+    return;
+  }
+
+  output.innerHTML = deveUsarQuebraResponsiva()
+    ? processarResponsivo(original, semitons)
+    : processar(original, semitons);
+}
+
+function iniciarControlesPalco() {
+  if (document.getElementById("controlePalco")) return;
+
+  const controle = document.createElement("div");
+  controle.id = "controlePalco";
+
+  controle.innerHTML = `
+    <button onclick="toggleRolagemAutomatica()">▶</button>
+    <button onclick="ajustarVelocidadeRolagem(1)">−</button>
+    <button onclick="ajustarVelocidadeRolagem(6)">+</button>
+    <button class="setlist-only" onclick="musicaAnteriorSetlist()">⬅️</button>
+    <button class="setlist-only" onclick="proximaMusicaSetlist()">➡️</button>
+    <button onclick="toggleModoPalco()">✕</button>
+  `;
+
+  document.body.appendChild(controle);
+}
+
+function fecharPainel() {
+  document.querySelectorAll(".bottom-sheet-panel").forEach(p => {
+    p.classList.remove("visible");
+    p.style.bottom = "";
+  });
+
+  document.getElementById("panelOverlay")?.classList.remove("visible");
+
+  if (typeof liberarBottomNav === "function") {
+    liberarBottomNav();
+  }
+
+  document.activeElement?.blur();
+}
+
+window.addEventListener("resize", () => {
+  atualizarVisualizacao();
+});
