@@ -2537,28 +2537,6 @@ async function alternarTemaRapido() {
   aplicarPreferenciasNaTela(prefs);
 }
 
-if (localStorage.getItem("loginRedirectPendente") === "sim") {
- 
-    .catch((erro) => {
-      localStorage.removeItem("loginRedirectPendente");
-      console.error("Erro no retorno mobile:", erro);
-      alert("Erro no retorno mobile: " + erro.code + " - " + erro.message);
-    });
-}
-
-  .catch((erro) => {
-    console.error(
-      "Erro retorno mobile:",
-      erro
-    );
-
-    alert(
-      "Erro login mobile: "
-      + erro.code
-      + " - "
-      + erro.message
-    );
-  });
 
     auth.onAuthStateChanged(async (u) => {
       user = u || null;
