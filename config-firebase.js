@@ -23,11 +23,6 @@ window.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
   });
 window.db = firebase.firestore();
 
-try {
-  window.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-} catch (err) {
-  console.log("Persistência de login indisponível:", err);
-}
 
 try {
   window.db.enablePersistence().catch((err) => {
