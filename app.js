@@ -2790,12 +2790,53 @@ function mostrarCifra() {
   document.getElementById("telaCifra")?.style.setProperty("display","block");
 }
 
-const abrirOriginal = abrir;
-
-abrir = async function(id){
+async function abrir(id) {
   mostrarCifra();
-  await abrirOriginal(id);
-};
+
+  let m = null;
+
+  try {
+    const doc = await db.collection("musicas").doc(id).get();
+
+    if (doc.exists) {
+      m = {
+        id: doc.id,
+        ...doc.data()
+      };
+    }
+  } catch (erro) {
+    console.error("Erro ao buscar música online:", erro);
+  }
+
+  if (!m) {
+    const offline = carregarMusicasOffline();
+    m = offline.find(item => item.id === id);
+  }
+
+  if (!m) {
+    alert("Música não encontrada.");
+    return;
+  }
+
+  musicaAbertaId = id;
+  original = m.musica || "";
+  semitons = 0;
+
+  salvarRecente(id);
+
+  atualizarCabecalhoMusica(
+    m.titulo || "",
+    m.artista || "",
+    m.capo || "",
+    m.youtube || "",
+    m.tom || ""
+  );
+
+  atualizarVisualizacao();
+  fecharPainel();
+
+  window.scrollTo(0, 0);
+}
 
 function toggleRolagemAutomatica(){
   if (scrollAutomatico) {
