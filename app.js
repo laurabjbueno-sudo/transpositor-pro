@@ -3562,3 +3562,25 @@ async function abrirProximaDaSetlistEmAndamento() {
 
   await proximaMusicaSetlist();
 }
+
+/* ===== CORREÇÃO BOTÃO INÍCIO ===== */
+
+const abrirPainelOriginal = abrirPainel;
+
+function abrirPainel(tipo) {
+  fecharPainel();
+
+  if (tipo === "inicio") {
+    document.getElementById("painelInicio")?.classList.add("visible");
+    document.getElementById("panelOverlay")?.classList.add("visible");
+    esconderBottomNav?.();
+    carregarInicio?.();
+    return;
+  }
+
+  abrirPainelOriginal(tipo);
+}
+
+function abrirInicio() {
+  abrirPainel("inicio");
+}

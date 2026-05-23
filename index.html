@@ -1093,6 +1093,40 @@ body.modo-palco pre {
   pointer-events: none;
 }
 
+@media (max-width: 640px) {
+  .bottom-nav {
+    left: 0;
+    right: 0;
+    bottom: 8px;
+    transform: none;
+    width: auto;
+    margin: 0 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: flex-start;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 6px;
+    scrollbar-width: none;
+  }
+
+  .bottom-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bottom-nav button {
+    flex: 0 0 auto;
+    min-width: 72px;
+    font-size: 12px;
+    padding: 8px 10px;
+    white-space: nowrap;
+  }
+
+  .bottom-nav.hidden {
+    transform: translateY(90px);
+  }
+}
+
   </style>
 </head>
 <body>
