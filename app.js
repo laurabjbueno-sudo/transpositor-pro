@@ -3920,3 +3920,58 @@ function abrirInicio() {
   fecharPainel();
   mostrarInicio();
 }
+
+/* ===== CORREÇÃO FINAL: ABRIR MÚSICA ===== */
+
+async function abrir(id) {
+  const inicio = document.getElementById("telaInicio");
+  const cifra = document.getElementById("telaCifra");
+
+  if (inicio) inicio.style.display = "none";
+  if (cifra) cifra.style.display = "block";
+
+  let m = null;
+
+  try {
+    const doc = await db.collection("musicas").doc(id).get();
+
+    if (doc.exists) {
+      m = { id: doc.id, ...doc.data() };
+    }
+  } catch (erro) {
+    console.log("Falha online. Tentando offline.");
+  }
+
+  if (!m) {
+    const offline = carregarMusicasOffline();
+    m = offline.find(item => item.id === id);
+  }
+
+  if (!m) {
+    alert("Música não encontrada.");
+    return;
+  }
+
+  musicaAbertaId = id;
+  original = m.musica || "";
+  semitons = 0;
+
+  history.replaceState(null, "", `?musica=${id}`);
+  salvarRecente(id);
+
+  atualizarCabecalhoMusica(
+    m.titulo || "",
+    m.artista || "",
+    m.capo || "",
+    m.youtube || "",
+    m.tom || ""
+  );
+
+  atualizarVisualizacao();
+  fecharPainel();
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
