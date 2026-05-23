@@ -789,8 +789,25 @@ pre {
 pre {
   tab-size: 4;
   white-space: pre-wrap;
-  word-break: normal;
+  word-break: keep-all;
   overflow-wrap: normal;
+
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Courier New",
+    monospace;
+}
+
+@media (max-width: 640px) {
+  pre {
+    font-size: calc(var(--font-size-pre) - 3px);
+    line-height: 1.55;
+    padding-right: 4px;
+  }
 }
 
 @media (max-width: 899px) {
@@ -1020,6 +1037,30 @@ body.bg-strong-red {
   }
 }
 
+body.tem-setlist-ativa .setlist-only {
+  display: inline-flex;
+}
+
+.setlist-only {
+  display: none;
+}
+
+#btnSetlistAnterior,
+#btnSetlistProxima {
+  font-weight: 800;
+}
+
+.cifra-toolbar {
+  position: sticky;
+  top: calc(var(--header-height) + 4px);
+  z-index: 1100;
+}
+
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
   </style>
 </head>
 <body>
@@ -1241,8 +1282,8 @@ body.bg-strong-red {
             <button class="secondary" onclick="editarMusicaAberta()">Editar cifra</button>
             <button class="secondary" onclick="favoritarMusicaAberta()">⭐</button>
             <button class="secondary" onclick="copiarLinkMusica()">🔗</button>
-            <button id="btnSetlistAnterior" class="setlist-only" onclick="musicaAnteriorSetlist()">⬅️ Anterior</button>
-            <button id="btnSetlistProxima" class="setlist-only" onclick="proximaMusicaSetlist()">Próxima ➡️</button>
+            <button id="btnSetlistAnterior" class="setlist-only" onclick="musicaAnteriorSetlist()">⬅️ Ant.</button>
+<button id="btnSetlistProxima" class="setlist-only" onclick="proximaMusicaSetlist()">Prox. ➡️</button>
           </div>
 
           <div class="viewer-box">

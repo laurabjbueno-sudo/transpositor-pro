@@ -304,12 +304,161 @@ function detectarTom(texto) {
 }
 
     function atualizarVisualizacao() {
-      if (!original.trim()) {
-        output.textContent = "Abra ou digite uma música para visualizar aqui.";
-        return;
-      }
-      output.innerHTML = processar(original, semitons);
+  if (!original.trim()) {
+    output.textContent = "Abra ou digite uma música para visualizar aqui.";
+    return;
+  }
+
+  const larguraPequena = window.innerWidth <= 640;
+
+  if (larguraPequena) {
+    output.innerHTML = processarResponsivo(original, semitons);
+  } else {
+    output.innerHTML = processar(original, semitons);
+  }
+}
+
+function linhaTemAcordes(linha) {
+  return linhaPareceCifra(linha);
+}
+
+function dividirLinha(
+  texto,
+  limite = 34
+) {
+
+  const partes = [];
+
+  let resto = texto;
+
+  while (
+    resto.length > limite
+  ) {
+
+    let corte =
+      resto.lastIndexOf(
+        " ",
+        limite
+      );
+
+    if (corte < 10) {
+      corte = limite;
     }
+
+    partes.push(
+      resto.slice(0, corte)
+    );
+
+    resto =
+      resto
+      .slice(corte)
+      .trimStart();
+  }
+
+  partes.push(resto);
+
+  return partes;
+}
+
+function processarResponsivo(
+  texto,
+  passos
+) {
+
+  const linhas =
+    texto.split("\n");
+
+  const resultado = [];
+
+  for (
+    let i = 0;
+    i < linhas.length;
+    i++
+  ) {
+
+    const cifra =
+      linhas[i] || "";
+
+    const letra =
+      linhas[i + 1] || "";
+
+    if (
+      linhaTemAcordes(cifra)
+      &&
+      letra
+      &&
+      !linhaTemAcordes(
+        letra
+      )
+    ) {
+
+      const blocos =
+        dividirLinha(
+          letra,
+          34
+        );
+
+      let pos = 0;
+
+      blocos.forEach(
+        bloco => {
+
+        const cifraBloco =
+          cifra.slice(
+            pos,
+            pos +
+            bloco.length
+          );
+
+        resultado.push(
+          processarLinhaComAcordes(
+            escapeHtml(
+              cifraBloco
+            ),
+            passos
+          )
+        );
+
+        resultado.push(
+          escapeHtml(
+            bloco
+          )
+        );
+
+        pos +=
+          bloco.length + 1;
+
+      });
+
+      i++;
+
+      continue;
+    }
+
+    resultado.push(
+      linhaTemAcordes(
+        cifra
+      )
+      ?
+      processarLinhaComAcordes(
+        escapeHtml(
+          cifra
+        ),
+        passos
+      )
+      :
+      escapeHtml(
+        cifra
+      )
+    );
+
+  }
+
+  return resultado.join(
+    "\n"
+  );
+
+}
 
     function obterEmbedYoutube(url) {
   if (!url) return "";
@@ -2732,4 +2881,362 @@ window.addEventListener("load", () => {
   if (location.search.includes("debug=1")) {
     setTimeout(mostrarDebugLogin, 1000);
   }
+});
+
+/* ===== CORREÇÕES NETLIFY - FUNÇÕES PRINCIPAIS ===== */
+
+function toggleRolagemAutomatica() {
+  if (scrollAutomatico) {
+    pararRolagemAutomatica();
+  } else {
+    iniciarRolagemAutomatica();
+  }
+}
+
+function iniciarRolagemAutomatica() {
+  if (scrollAnimationId) cancelAnimationFrame(scrollAnimationId);
+
+  scrollAutomatico = true;
+
+  const btn = document.getElementById("btnAutoScroll");
+  if (btn) btn.innerText = "⏸ Pausar";
+
+  let ultima = performance.now();
+
+  function passo(agora) {
+    if (!scrollAutomatico) return;
+
+    if (agora - ultima >= 35) {
+      window.scrollBy(0, 1);
+      ultima = agora;
+    }
+
+    scrollAnimationId = requestAnimationFrame(passo);
+  }
+
+  scrollAnimationId = requestAnimationFrame(passo);
+}
+
+function pararRolagemAutomatica() {
+  scrollAutomatico = false;
+
+  if (scrollAnimationId) {
+    cancelAnimationFrame(scrollAnimationId);
+    scrollAnimationId = null;
+  }
+
+  const btn = document.getElementById("btnAutoScroll");
+  if (btn) btn.innerText = "▶ Rolar";
+}
+
+async function copiarLinkMusica() {
+  if (!musicaAbertaId) {
+    alert("Abra uma música antes de copiar o link.");
+    return;
+  }
+
+  const url = `${location.origin}${location.pathname}?musica=${musicaAbertaId}`;
+
+  try {
+    await navigator.clipboard.writeText(url);
+    alert("Link da música copiado.");
+  } catch {
+    prompt("Copie o link:", url);
+  }
+}
+
+function favoritarMusicaAberta() {
+  if (!musicaAbertaId) {
+    alert("Abra uma música antes de favoritar.");
+    return;
+  }
+
+  const favorito = alternarFavorito(musicaAbertaId);
+  alert(favorito ? "Adicionada aos favoritos." : "Removida dos favoritos.");
+
+  if (painelMusicas.classList.contains("visible")) {
+    carregarTodasMusicas();
+  }
+}
+
+async function carregarTodasMusicas() {
+  const container = document.getElementById("listaTodasMusicas");
+  const vazio = document.getElementById("listaTodasMusicasVazia");
+
+  if (!container) return;
+
+  container.innerHTML = "Carregando músicas...";
+  container.style.display = "block";
+
+  const termo = normalizarTexto(buscaTodasMusicas?.value || "");
+  const favoritos = obterFavoritos();
+  const recentes = obterRecentes();
+
+  let musicas = await buscarMusicasOnlineOuOffline();
+
+  musicas = musicas.filter(m => {
+    const generoOk = !generoSelecionado || m.genero === generoSelecionado;
+    const termoOk = musicaCombinaComBusca(m, termo);
+
+    const tipoOk =
+      tipoFiltroMusica === "todas" ||
+      (tipoFiltroMusica === "favoritas" && favoritos.includes(m.id)) ||
+      (tipoFiltroMusica === "recentes" && recentes.includes(m.id));
+
+    return generoOk && termoOk && tipoOk;
+  });
+
+  musicas.sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "pt-BR"));
+
+  container.innerHTML = "";
+
+  if (!musicas.length) {
+    if (vazio) {
+      vazio.innerText = "Nenhuma música encontrada.";
+      vazio.style.display = "block";
+    }
+    return;
+  }
+
+  if (vazio) vazio.style.display = "none";
+
+  musicas.forEach(m => {
+    const podeEditar = podeEditarMusica(m);
+    const podeExcluir = podeExcluirMusica(m);
+
+    const item = document.createElement("div");
+    item.className = "song-item";
+
+    item.innerHTML = `
+      <div class="song-item-title">${escapeHtml(m.titulo || "Sem título")}</div>
+      <div class="song-item-artist">${escapeHtml(m.artista || "Artista não informado")}</div>
+      <div class="song-item-author">Gênero: ${escapeHtml(m.genero || "Não informado")}</div>
+      <div class="song-item-author">Pasta: ${escapeHtml(m.pastaNome || "Sem pasta")}</div>
+
+      <div class="result-actions">
+        <button onclick="abrir('${m.id}'); fecharPainel();">Abrir</button>
+        ${podeEditar ? `<button onclick="editar('${m.id}'); fecharPainel();">Editar</button>` : ""}
+        ${podeEditar ? `<button onclick="moverParaPasta('${m.id}')">Mover pasta</button>` : ""}
+        ${podeExcluir ? `<button class="danger" onclick="excluirMusica('${m.id}')">Excluir</button>` : ""}
+      </div>
+    `;
+
+    container.appendChild(item);
+  });
+}
+
+async function carregarPainelSetlists() {
+  listaSetlists.innerHTML = "Carregando setlists...";
+  listaSetlistsVazia.style.display = "none";
+
+  const setlists = await buscarSetlistsOnlineOuOffline();
+
+  const minhas = setlists
+    .filter(s => !user || s.uid === user.uid || ehAdmin() || ehEditora())
+    .sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+
+  listaSetlists.innerHTML = "";
+
+  if (!minhas.length) {
+    listaSetlistsVazia.innerText = "Nenhuma setlist criada ainda.";
+    listaSetlistsVazia.style.display = "block";
+    return;
+  }
+
+  minhas.forEach(setlist => {
+    const div = document.createElement("div");
+    div.className = "song-item";
+
+    const podeExcluir = user && (setlist.uid === user.uid || ehAdmin());
+
+    div.innerHTML = `
+      <div class="song-item-title">📋 ${escapeHtml(setlist.nome || "Setlist sem nome")}</div>
+      <div class="song-item-author">Músicas: ${(setlist.musicas || []).length}</div>
+
+      <div class="result-actions">
+        <button onclick="abrirSetlist('${setlist.id}')">Abrir</button>
+        <button onclick="editarNomeSetlist('${setlist.id}')">Editar nome</button>
+        <button onclick="adicionarMusicaNaSetlist('${setlist.id}')">Add música</button>
+        ${podeExcluir ? `<button class="danger" onclick="excluirSetlist('${setlist.id}')">Excluir</button>` : ""}
+      </div>
+    `;
+
+    listaSetlists.appendChild(div);
+  });
+}
+
+async function editarNomeSetlist(setlistId) {
+  if (!user) {
+    alert("Faça login primeiro.");
+    return;
+  }
+
+  const setlists = await buscarSetlistsOnlineOuOffline();
+  const setlist = setlists.find(s => s.id === setlistId);
+
+  if (!setlist) {
+    alert("Setlist não encontrada.");
+    return;
+  }
+
+  const novoNome = prompt("Novo nome da setlist:", setlist.nome || "");
+
+  if (!novoNome || !novoNome.trim()) return;
+
+  await db.collection("setlists").doc(setlistId).update({
+    nome: novoNome.trim(),
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  await carregarPainelSetlists();
+  alert("Nome atualizado.");
+}
+
+async function abrirMusicaDaSetlist(id) {
+  setlistAtualIndice = setlistAtualIds.indexOf(id);
+  document.body.classList.add("tem-setlist-ativa");
+  await abrir(id);
+}
+
+async function abrirSetlist(setlistId) {
+  history.replaceState(null, "", `?setlist=${setlistId}`);
+
+  const setlists = await buscarSetlistsOnlineOuOffline();
+  const setlist = setlists.find(s => s.id === setlistId);
+
+  if (!setlist) {
+    alert("Setlist não encontrada.");
+    return;
+  }
+
+  tituloMusicasDaSetlist.textContent = `Músicas em: ${setlist.nome || "Setlist"}`;
+  listaMusicasDaSetlist.innerHTML = "Carregando músicas...";
+  listaMusicasDaSetlistVazia.style.display = "none";
+
+  const musicasBase = await buscarMusicasOnlineOuOffline();
+  setlistAtualIds = setlist.musicas || [];
+  setlistAtualIndice = -1;
+
+  const musicas = setlistAtualIds
+    .map(id => musicasBase.find(m => m.id === id))
+    .filter(Boolean);
+
+  listaMusicasDaSetlist.innerHTML = "";
+
+  if (!musicas.length) {
+    listaMusicasDaSetlistVazia.innerText = "Nenhuma música nesta setlist.";
+    listaMusicasDaSetlistVazia.style.display = "block";
+    return;
+  }
+
+  musicas.forEach((m, index) => {
+    const div = document.createElement("div");
+    div.className = "song-item";
+
+    div.innerHTML = `
+      <div class="song-item-title">${index + 1}. ${escapeHtml(m.titulo || "Sem título")}</div>
+      <div class="song-item-artist">${escapeHtml(m.artista || "Artista não informado")}</div>
+
+      <div class="result-actions">
+        <button onclick="abrirMusicaDaSetlist('${m.id}'); fecharPainel();">Abrir</button>
+        <button onclick="moverMusicaNaSetlist('${setlistId}', '${m.id}', -1)">⬆️</button>
+        <button onclick="moverMusicaNaSetlist('${setlistId}', '${m.id}', 1)">⬇️</button>
+        <button onclick="removerMusicaDaSetlist('${setlistId}', '${m.id}')">Remover</button>
+      </div>
+    `;
+
+    listaMusicasDaSetlist.appendChild(div);
+  });
+}
+
+async function proximaMusicaSetlist() {
+  if (!setlistAtualIds.length) return;
+
+  if (setlistAtualIndice < setlistAtualIds.length - 1) {
+    setlistAtualIndice++;
+    await abrir(setlistAtualIds[setlistAtualIndice]);
+  } else {
+    alert("Fim da setlist.");
+  }
+}
+
+async function musicaAnteriorSetlist() {
+  if (!setlistAtualIds.length) return;
+
+  if (setlistAtualIndice > 0) {
+    setlistAtualIndice--;
+    await abrir(setlistAtualIds[setlistAtualIndice]);
+  } else {
+    alert("Primeira música da setlist.");
+  }
+}
+
+function obterPreferencias() {
+  try {
+    return JSON.parse(localStorage.getItem(PREFS_KEY)) || {
+      theme: "dark",
+      accent: "#22c55e",
+      fontScale: 0,
+      background: "dark"
+    };
+  } catch {
+    return {
+      theme: "dark",
+      accent: "#22c55e",
+      fontScale: 0,
+      background: "dark"
+    };
+  }
+}
+
+function limparFundos() {
+  document.body.classList.remove(
+    "bg-pastel-green",
+    "bg-pastel-blue",
+    "bg-pastel-pink",
+    "bg-pastel-yellow",
+    "bg-strong-purple",
+    "bg-strong-blue",
+    "bg-strong-green",
+    "bg-strong-red"
+  );
+}
+
+function aplicarPreferenciasNaTela(prefs) {
+  prefs = prefs || obterPreferencias();
+
+  limparFundos();
+
+  document.body.classList.toggle("light-theme", prefs.background === "light");
+
+  if (prefs.background && !["dark", "light"].includes(prefs.background)) {
+    document.body.classList.add("bg-" + prefs.background);
+  }
+
+  document.documentElement.style.setProperty("--accent", prefs.accent || "#22c55e");
+
+  const escala = prefs.fontScale || 0;
+  document.documentElement.style.setProperty("--font-size-base", `${16 + escala}px`);
+  document.documentElement.style.setProperty("--font-size-title", `${24 + escala}px`);
+  document.documentElement.style.setProperty("--font-size-pre", `${17 + escala}px`);
+
+  if (accentSelect) accentSelect.value = prefs.accent || "#22c55e";
+
+  const bgSelect = document.getElementById("bgSelect");
+  if (bgSelect) bgSelect.value = prefs.background || "dark";
+}
+
+async function aplicarFundoSelecionado() {
+  const prefs = obterPreferencias();
+  const bgSelect = document.getElementById("bgSelect");
+
+  prefs.background = bgSelect ? bgSelect.value : "dark";
+  prefs.theme = prefs.background === "light" ? "light" : "dark";
+
+  await salvarPreferencias(prefs);
+  aplicarPreferenciasNaTela(prefs);
+}
+
+window.addEventListener("load", () => {
+  aplicarPreferenciasNaTela(obterPreferencias());
 });
