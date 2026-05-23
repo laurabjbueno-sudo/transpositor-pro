@@ -1095,7 +1095,9 @@ musicasOffline = docs;
     }
 
 async function abrir(id) {
-  let m = null;
+mostrarCifra();
+ 
+ let m = null;
 
   if (navigator.onLine) {
     try {
@@ -1313,7 +1315,7 @@ async function carregarTodasMusicas() {
           Abrir
         </button>
 
-        <button onclick="editarMusica('${m.id}')">
+        <button onclick="editar('${m.id}')">
           Editar
         </button>
 
@@ -1821,97 +1823,6 @@ function favoritarMusicaAberta() {
 
 let modoPalcoAtivo = false;
 let scrollAutomatico = null;
-/* ===== VELOCIDADE DA ROLAGEM ===== */
-
-let velocidadeRolagem = 3;
-
-function diminuirVelocidadeRolagem() {
-  velocidadeRolagem = Math.max(1, velocidadeRolagem - 1);
-
-  if (scrollAutomatico) {
-    pararRolagemAutomatica();
-    iniciarRolagemAutomatica();
-  }
-}
-
-function aumentarVelocidadeRolagem() {
-  velocidadeRolagem = Math.min(10, velocidadeRolagem + 1);
-
-  if (scrollAutomatico) {
-    pararRolagemAutomatica();
-    iniciarRolagemAutomatica();
-  }
-}
-
-function iniciarRolagemAutomatica() {
-
-  if (scrollAnimationId) {
-    cancelAnimationFrame(scrollAnimationId);
-  }
-
-  scrollAutomatico = true;
-
-  const btn =
-    document.getElementById(
-      "btnAutoScroll"
-    );
-
-  if (btn) {
-    btn.innerText =
-      "⏸";
-  }
-
-  let ultima =
-    performance.now();
-
-  function passo(
-    agora
-  ) {
-
-    if (
-      !scrollAutomatico
-    ) return;
-
-    if (
-      agora -
-      ultima
-      >=
-      35
-    ) {
-
-      window.scrollBy(
-        0,
-        velocidadeRolagem
-      );
-
-      ultima =
-        agora;
-
-    }
-
-    scrollAnimationId =
-      requestAnimationFrame(
-        passo
-      );
-
-  }
-
-  scrollAnimationId =
-    requestAnimationFrame(
-      passo
-    );
-
-}
-
-function pararRolagemAutomatica() {
-  scrollAutomatico = false;
-  if (scrollAnimationId) {
-    cancelAnimationFrame(scrollAnimationId);
-    scrollAnimationId = null;
-  }
-  const btnScrollPalco = document.getElementById("btn-scroll-palco");
-  if (btnScrollPalco) btnScrollPalco.innerHTML = "▶ Rolar";
-}
 
 function carregarSetlistsOffline() {
   try {
@@ -1990,7 +1901,7 @@ async function carregarPainelSetlists() {
 
   listaSetlists.innerHTML = "";
 
-  if (!minhas.length) {
+  if (!todas.length) {
     listaSetlistsVazia.textContent = estaOffline()
       ? "Nenhuma setlist salva offline."
       : "Nenhuma setlist criada ainda.";
@@ -1998,7 +1909,7 @@ async function carregarPainelSetlists() {
     return;
   }
 
-  minhas.forEach(setlist => {
+  todas.forEach(setlist => {
     const div = document.createElement("div");
     div.className = "song-item";
 
@@ -2937,70 +2848,6 @@ function fecharPainel() {
   document.activeElement?.blur();
 }
 
-/* ---------- ABRIR MÚSICA ---------- */
-
-async function abrir(id) {
-  mostrarCifra();
-
-  let m = null;
-
-  try {
-    const doc = await db.collection("musicas").doc(id).get();
-
-    if (doc.exists) {
-      m = { id: doc.id, ...doc.data() };
-    }
-  } catch {
-    console.log("Tentando abrir música offline.");
-  }
-
-  if (!m) {
-    m = carregarMusicasOffline().find(item => item.id === id);
-  }
-
-  if (!m) {
-    alert("Música não encontrada.");
-    return;
-  }
-
-  musicaAbertaId = id;
-  original = m.musica || "";
-  semitons = 0;
-
-  if (user) {
-    try {
-      const tomDoc = await db
-        .collection("usuarios")
-        .doc(user.uid)
-        .collection("tons")
-        .doc(id)
-        .get();
-
-      if (tomDoc.exists) {
-        semitons = tomDoc.data().semitons || 0;
-      }
-    } catch {}
-  }
-
-  salvarRecente(id);
-  history.replaceState(null, "", `?musica=${id}`);
-
-  atualizarCabecalhoMusica(
-    m.titulo || "",
-    m.artista || "",
-    m.capo || "",
-    m.youtube || "",
-    m.tom || ""
-  );
-
-  atualizarVisualizacao();
-  fecharPainel();
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
-}
 
 /* ---------- INÍCIO ---------- */
 
@@ -3592,9 +3439,12 @@ function atualizarVisualizacao() {
 
 /* ---------- INICIALIZAÇÃO ---------- */
 
-window.addEventListener("load", () => {
-  setTimeout(() => {
-    carregarInicio();
-    if (!musicaAbertaId) mostrarInicio();
-  }, 800);
+window.addEventListener("load", async () => {
+
+  await carregarInicio();
+
+  if (!musicaAbertaId) {
+    mostrarInicio();
+  }
+
 });
