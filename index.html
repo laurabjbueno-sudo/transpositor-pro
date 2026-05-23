@@ -1127,6 +1127,28 @@ body.modo-palco pre {
   }
 }
 
+.inicio-compacto {
+  padding: 4px 0;
+}
+
+.inicio-compacto button {
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+#inicioRecentes,
+#inicioFavoritas,
+#inicioSetlists {
+  max-height: 155px;
+  overflow-y: auto;
+}
+
+#output {
+  padding-bottom: 80vh;
+}
+
   </style>
 </head>
 <body>
@@ -1319,79 +1341,6 @@ body.modo-palco pre {
   </div>
 </section>
 
-<section id="painelInicio" class="bottom-sheet-panel">
-
-  <div class="panel-header">
-    <div class="section-title" style="margin-bottom:0;">
-      Início
-    </div>
-
-    <button class="secondary"
-      onclick="fecharPainel()">
-      Fechar
-    </button>
-  </div>
-
-  <div class="card">
-    <div class="section-title">
-      Acesso rápido
-    </div>
-
-    <div class="result-actions">
-
-      <button onclick="continuarUltimaMusica()">
-        ▶ Continuar
-      </button>
-
-<button onclick="retomarSetlistEmAndamento()">
-  📋 Retomar setlist
-</button>
-
-<button onclick="abrirProximaDaSetlistEmAndamento()">
-  ▶ Próxima da setlist
-</button>
-
-      <button onclick="abrirPainel('buscar')">
-        🔎 Buscar
-      </button>
-
-      <button onclick="abrirFormularioNovaMusica()">
-        ➕ Nova
-      </button>
-
-      <button onclick="toggleModoPalco()">
-        🎤 Palco
-      </button>
-
-
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="section-title">
-      Recentes
-    </div>
-
-    <div id="inicioRecentes"></div>
-  </div>
-
-  <div class="card">
-    <div class="section-title">
-      Favoritas
-    </div>
-
-    <div id="inicioFavoritas"></div>
-  </div>
-
-  <div class="card">
-    <div class="section-title">
-      Setlists recentes
-    </div>
-
-    <div id="inicioSetlists"></div>
-  </div>
-
-</section>
 
 
   <main class="main-content">

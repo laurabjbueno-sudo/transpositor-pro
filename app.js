@@ -1985,9 +1985,8 @@ async function carregarPainelSetlists() {
 
   const setlists = await buscarSetlistsOnlineOuOffline();
 
-  const minhas = setlists
-    .filter(s => !user || s.uid === user.uid || ehAdmin() || ehEditora())
-    .sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+  const todas = setlists
+  .sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
 
   listaSetlists.innerHTML = "";
 
@@ -2870,180 +2869,257 @@ window.addEventListener("load", () => {
   }
 });
 
-/* ===== CORREÇÕES NETLIFY - FUNÇÕES PRINCIPAIS ===== */
+/* ===== BLOCO FINAL LIMPO - TRANSpositor PRO ===== */
 
-function toggleRolagemAutomatica() {
-  if (scrollAutomatico) {
-    pararRolagemAutomatica();
-  } else {
-    iniciarRolagemAutomatica();
-  }
+let intervaloRolagemAuto = null;
+velocidadeRolagem = velocidadeRolagem || 2;
+
+/* ---------- TELAS ---------- */
+
+function mostrarCifra() {
+  document.getElementById("telaInicio")?.style.setProperty("display", "none");
+  document.getElementById("telaCifra")?.style.setProperty("display", "block");
 }
 
-function iniciarRolagemAutomatica() {
-  if (scrollAnimationId) cancelAnimationFrame(scrollAnimationId);
+function mostrarInicio() {
+  fecharPainel();
+  pararRolagemAutomatica();
 
-  scrollAutomatico = true;
+  document.body.classList.remove("modo-palco", "tem-setlist-ativa");
+  document.getElementById("controlePalco")?.remove();
 
-  const btn = document.getElementById("btnAutoScroll");
-  if (btn) btn.innerText = "⏸ Pausar";
+  document.getElementById("telaInicio")?.style.setProperty("display", "block");
+  document.getElementById("telaCifra")?.style.setProperty("display", "none");
 
-  let ultima = performance.now();
-
-  function passo(agora) {
-    if (!scrollAutomatico) return;
-
-    if (agora - ultima >= 35) {
-      window.scrollBy(0, 1);
-      ultima = agora;
-    }
-
-    scrollAnimationId = requestAnimationFrame(passo);
-  }
-
-  scrollAnimationId = requestAnimationFrame(passo);
+  history.replaceState(null, "", location.pathname);
+  carregarInicio();
 }
 
-function pararRolagemAutomatica() {
-  scrollAutomatico = false;
-
-  if (scrollAnimationId) {
-    cancelAnimationFrame(scrollAnimationId);
-    scrollAnimationId = null;
-  }
-
-  const btn = document.getElementById("btnAutoScroll");
-  if (btn) btn.innerText = "▶ Rolar";
+function abrirInicio() {
+  mostrarInicio();
 }
 
-async function copiarLinkMusica() {
-  if (!musicaAbertaId) {
-    alert("Abra uma música antes de copiar o link.");
-    return;
-  }
+/* ---------- PAINÉIS ---------- */
 
-  const url = `${location.origin}${location.pathname}?musica=${musicaAbertaId}`;
+function abrirPainel(tipo) {
+  fecharPainel();
+
+  const mapa = {
+    buscar: "painelBusca",
+    pastas: "painelPastas",
+    musicas: "painelMusicas",
+    setlists: "painelSetlists"
+  };
+
+  const painel = document.getElementById(mapa[tipo]);
+
+  if (!painel) return;
+
+  painel.classList.add("visible");
+  document.getElementById("panelOverlay")?.classList.add("visible");
+  esconderBottomNav?.();
+
+  if (tipo === "buscar") setTimeout(() => busca?.focus(), 250);
+  if (tipo === "pastas") carregarPainelPastas();
+  if (tipo === "musicas") carregarTodasMusicas();
+  if (tipo === "setlists") carregarPainelSetlists();
+}
+
+function fecharPainel() {
+  document.querySelectorAll(".bottom-sheet-panel").forEach(p => {
+    p.classList.remove("visible");
+    p.style.bottom = "";
+  });
+
+  document.getElementById("panelOverlay")?.classList.remove("visible");
+
+  liberarBottomNav?.();
+  document.activeElement?.blur();
+}
+
+/* ---------- ABRIR MÚSICA ---------- */
+
+async function abrir(id) {
+  mostrarCifra();
+
+  let m = null;
 
   try {
-    await navigator.clipboard.writeText(url);
-    alert("Link da música copiado.");
-  } catch {
-    prompt("Copie o link:", url);
-  }
-}
+    const doc = await db.collection("musicas").doc(id).get();
 
-function favoritarMusicaAberta() {
-  if (!musicaAbertaId) {
-    alert("Abra uma música antes de favoritar.");
-    return;
-  }
-
-  const favorito = alternarFavorito(musicaAbertaId);
-  alert(favorito ? "Adicionada aos favoritos." : "Removida dos favoritos.");
-
-  if (painelMusicas.classList.contains("visible")) {
-    carregarTodasMusicas();
-  }
-}
-
-async function carregarTodasMusicas() {
-  const container = document.getElementById("listaTodasMusicas");
-  const vazio = document.getElementById("listaTodasMusicasVazia");
-
-  if (!container) return;
-
-  container.innerHTML = "Carregando músicas...";
-  container.style.display = "block";
-
-  const termo = normalizarTexto(buscaTodasMusicas?.value || "");
-  const favoritos = obterFavoritos();
-  const recentes = obterRecentes();
-
-  let musicas = await buscarMusicasOnlineOuOffline();
-
-  musicas = musicas.filter(m => {
-    const generoOk = !generoSelecionado || m.genero === generoSelecionado;
-    const termoOk = musicaCombinaComBusca(m, termo);
-
-    const tipoOk =
-      tipoFiltroMusica === "todas" ||
-      (tipoFiltroMusica === "favoritas" && favoritos.includes(m.id)) ||
-      (tipoFiltroMusica === "recentes" && recentes.includes(m.id));
-
-    return generoOk && termoOk && tipoOk;
-  });
-
-  musicas.sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "pt-BR"));
-
-  container.innerHTML = "";
-
-  if (!musicas.length) {
-    if (vazio) {
-      vazio.innerText = "Nenhuma música encontrada.";
-      vazio.style.display = "block";
+    if (doc.exists) {
+      m = { id: doc.id, ...doc.data() };
     }
+  } catch {
+    console.log("Tentando abrir música offline.");
+  }
+
+  if (!m) {
+    m = carregarMusicasOffline().find(item => item.id === id);
+  }
+
+  if (!m) {
+    alert("Música não encontrada.");
     return;
   }
 
-  if (vazio) vazio.style.display = "none";
+  musicaAbertaId = id;
+  original = m.musica || "";
+  semitons = 0;
 
-  musicas.forEach(m => {
-    const podeEditar = podeEditarMusica(m);
-    const podeExcluir = podeExcluirMusica(m);
+  if (user) {
+    try {
+      const tomDoc = await db
+        .collection("usuarios")
+        .doc(user.uid)
+        .collection("tons")
+        .doc(id)
+        .get();
 
-    const item = document.createElement("div");
-    item.className = "song-item";
+      if (tomDoc.exists) {
+        semitons = tomDoc.data().semitons || 0;
+      }
+    } catch {}
+  }
 
-    item.innerHTML = `
-      <div class="song-item-title">${escapeHtml(m.titulo || "Sem título")}</div>
-      <div class="song-item-artist">${escapeHtml(m.artista || "Artista não informado")}</div>
-      <div class="song-item-author">Gênero: ${escapeHtml(m.genero || "Não informado")}</div>
-      <div class="song-item-author">Pasta: ${escapeHtml(m.pastaNome || "Sem pasta")}</div>
+  salvarRecente(id);
+  history.replaceState(null, "", `?musica=${id}`);
 
-      <div class="result-actions">
-        <button onclick="abrir('${m.id}'); fecharPainel();">Abrir</button>
-        ${podeEditar ? `<button onclick="editar('${m.id}'); fecharPainel();">Editar</button>` : ""}
-        ${podeEditar ? `<button onclick="moverParaPasta('${m.id}')">Mover pasta</button>` : ""}
-        ${podeExcluir ? `<button class="danger" onclick="excluirMusica('${m.id}')">Excluir</button>` : ""}
+  atualizarCabecalhoMusica(
+    m.titulo || "",
+    m.artista || "",
+    m.capo || "",
+    m.youtube || "",
+    m.tom || ""
+  );
+
+  atualizarVisualizacao();
+  fecharPainel();
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
+
+/* ---------- INÍCIO ---------- */
+
+async function carregarInicio() {
+  const musicas = await buscarMusicasOnlineOuOffline();
+  const setlists = await buscarSetlistsOnlineOuOffline();
+
+  const recentes = obterRecentes()
+    .map(id => musicas.find(m => m.id === id))
+    .filter(Boolean);
+
+  const favoritos = obterFavoritos()
+    .map(id => musicas.find(m => m.id === id))
+    .filter(Boolean);
+
+  preencherListaInicio("inicioRecentes", recentes, "Nada recente ainda.");
+  preencherListaInicio("inicioFavoritas", favoritos, "Nenhuma favorita ainda.");
+  preencherListaSetlistsInicio("inicioSetlists", setlists.slice(0, 5));
+}
+
+function preencherListaInicio(id, lista, vazio) {
+  const div = document.getElementById(id);
+  if (!div) return;
+
+  div.innerHTML = "";
+
+  if (!lista.length) {
+    div.innerHTML = `<div class="empty-state">${vazio}</div>`;
+    return;
+  }
+
+  lista.slice(0, 5).forEach(m => {
+    div.innerHTML += `
+      <div class="song-item inicio-compacto">
+        <button onclick="abrir('${m.id}')">
+          ${escapeHtml(m.titulo || "Sem título")}
+        </button>
       </div>
     `;
-
-    container.appendChild(item);
   });
 }
 
+function preencherListaSetlistsInicio(id, lista) {
+  const div = document.getElementById(id);
+  if (!div) return;
+
+  div.innerHTML = "";
+
+  if (!lista.length) {
+    div.innerHTML = `<div class="empty-state">Nenhuma setlist ainda.</div>`;
+    return;
+  }
+
+  lista.slice(0, 5).forEach(s => {
+    div.innerHTML += `
+      <div class="song-item inicio-compacto">
+        <button onclick="abrirPainel('setlists'); abrirSetlist('${s.id}')">
+          📋 ${escapeHtml(s.nome || "Setlist")}
+        </button>
+      </div>
+    `;
+  });
+}
+
+function continuarUltimaMusica() {
+  const recentes = obterRecentes();
+
+  if (!recentes.length) {
+    alert("Nenhuma música recente.");
+    return;
+  }
+
+  abrir(recentes[0]);
+}
+
+/* ---------- SETLISTS VISÍVEIS PARA TODOS LOGADOS ---------- */
+
 async function carregarPainelSetlists() {
+  if (!user && !estaOffline()) {
+    listaSetlists.innerHTML = "";
+    listaSetlistsVazia.textContent = "Faça login para ver as setlists.";
+    listaSetlistsVazia.style.display = "block";
+    return;
+  }
+
   listaSetlists.innerHTML = "Carregando setlists...";
   listaSetlistsVazia.style.display = "none";
 
   const setlists = await buscarSetlistsOnlineOuOffline();
 
-  const minhas = setlists
-    .filter(s => !user || s.uid === user.uid || ehAdmin() || ehEditora())
-    .sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+  const todas = setlists.sort((a, b) =>
+    (a.nome || "").localeCompare(b.nome || "", "pt-BR")
+  );
 
   listaSetlists.innerHTML = "";
 
-  if (!minhas.length) {
-    listaSetlistsVazia.innerText = "Nenhuma setlist criada ainda.";
+  if (!todas.length) {
+    listaSetlistsVazia.textContent = "Nenhuma setlist criada ainda.";
     listaSetlistsVazia.style.display = "block";
     return;
   }
 
-  minhas.forEach(setlist => {
+  todas.forEach(setlist => {
     const div = document.createElement("div");
     div.className = "song-item";
 
     const podeExcluir = user && (setlist.uid === user.uid || ehAdmin());
+    const podeEditar = user && (setlist.uid === user.uid || ehAdmin() || ehEditora());
 
     div.innerHTML = `
       <div class="song-item-title">📋 ${escapeHtml(setlist.nome || "Setlist sem nome")}</div>
+      <div class="song-item-author">Criada por: ${escapeHtml(setlist.autorNome || "Usuário")}</div>
       <div class="song-item-author">Músicas: ${(setlist.musicas || []).length}</div>
 
       <div class="result-actions">
         <button onclick="abrirSetlist('${setlist.id}')">Abrir</button>
-        <button onclick="editarNomeSetlist('${setlist.id}')">Editar nome</button>
-        <button onclick="adicionarMusicaNaSetlist('${setlist.id}')">Add música</button>
+        <button onclick="copiarLinkSetlist('${setlist.id}')">🔗 Link</button>
+        ${podeEditar ? `<button onclick="editarNomeSetlist('${setlist.id}')">Editar nome</button>` : ""}
+        ${user ? `<button onclick="adicionarMusicaNaSetlist('${setlist.id}')">Add músicas</button>` : ""}
         ${podeExcluir ? `<button class="danger" onclick="excluirSetlist('${setlist.id}')">Excluir</button>` : ""}
       </div>
     `;
@@ -3052,40 +3128,8 @@ async function carregarPainelSetlists() {
   });
 }
 
-async function editarNomeSetlist(setlistId) {
-  if (!user) {
-    alert("Faça login primeiro.");
-    return;
-  }
-
-  const setlists = await buscarSetlistsOnlineOuOffline();
-  const setlist = setlists.find(s => s.id === setlistId);
-
-  if (!setlist) {
-    alert("Setlist não encontrada.");
-    return;
-  }
-
-  const novoNome = prompt("Novo nome da setlist:", setlist.nome || "");
-
-  if (!novoNome || !novoNome.trim()) return;
-
-  await db.collection("setlists").doc(setlistId).update({
-    nome: novoNome.trim(),
-    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-  });
-
-  await carregarPainelSetlists();
-  alert("Nome atualizado.");
-}
-
-async function abrirMusicaDaSetlist(id) {
-  setlistAtualIndice = setlistAtualIds.indexOf(id);
-  document.body.classList.add("tem-setlist-ativa");
-  await abrir(id);
-}
-
 async function abrirSetlist(setlistId) {
+  salvarSetlistEmAndamento(setlistId);
   history.replaceState(null, "", `?setlist=${setlistId}`);
 
   const setlists = await buscarSetlistsOnlineOuOffline();
@@ -3096,11 +3140,19 @@ async function abrirSetlist(setlistId) {
     return;
   }
 
-  tituloMusicasDaSetlist.textContent = `Músicas em: ${setlist.nome || "Setlist"}`;
+  tituloMusicasDaSetlist.innerHTML = `
+    Músicas em: ${escapeHtml(setlist.nome || "Setlist")}
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+      ${user ? `<button onclick="adicionarMusicaNaSetlist('${setlistId}')">+ Add músicas</button>` : ""}
+      ${user ? `<button class="danger" onclick="selecionarRemoverMusicasDaSetlist('${setlistId}')">Remover várias</button>` : ""}
+    </div>
+  `;
+
   listaMusicasDaSetlist.innerHTML = "Carregando músicas...";
   listaMusicasDaSetlistVazia.style.display = "none";
 
   const musicasBase = await buscarMusicasOnlineOuOffline();
+
   setlistAtualIds = setlist.musicas || [];
   setlistAtualIndice = -1;
 
@@ -3111,10 +3163,13 @@ async function abrirSetlist(setlistId) {
   listaMusicasDaSetlist.innerHTML = "";
 
   if (!musicas.length) {
-    listaMusicasDaSetlistVazia.innerText = "Nenhuma música nesta setlist.";
+    listaMusicasDaSetlistVazia.textContent = "Nenhuma música nesta setlist.";
     listaMusicasDaSetlistVazia.style.display = "block";
+    document.body.classList.remove("tem-setlist-ativa");
     return;
   }
+
+  document.body.classList.add("tem-setlist-ativa");
 
   musicas.forEach((m, index) => {
     const div = document.createElement("div");
@@ -3126,9 +3181,9 @@ async function abrirSetlist(setlistId) {
 
       <div class="result-actions">
         <button onclick="abrirMusicaDaSetlist('${m.id}'); fecharPainel();">Abrir</button>
-        <button onclick="moverMusicaNaSetlist('${setlistId}', '${m.id}', -1)">⬆️</button>
-        <button onclick="moverMusicaNaSetlist('${setlistId}', '${m.id}', 1)">⬇️</button>
-        <button onclick="removerMusicaDaSetlist('${setlistId}', '${m.id}')">Remover</button>
+        ${user ? `<button onclick="moverMusicaNaSetlist('${setlistId}', '${m.id}', -1)">⬆️</button>` : ""}
+        ${user ? `<button onclick="moverMusicaNaSetlist('${setlistId}', '${m.id}', 1)">⬇️</button>` : ""}
+        ${user ? `<button onclick="removerMusicaDaSetlist('${setlistId}', '${m.id}')">Remover</button>` : ""}
       </div>
     `;
 
@@ -3136,416 +3191,51 @@ async function abrirSetlist(setlistId) {
   });
 }
 
-async function proximaMusicaSetlist() {
-  if (!setlistAtualIds.length) return;
+async function abrirMusicaDaSetlist(id) {
+  setlistAtualIndice = setlistAtualIds.indexOf(id);
+  document.body.classList.add("tem-setlist-ativa");
+  await abrir(id);
+}
 
-  if (setlistAtualIndice < setlistAtualIds.length - 1) {
+async function proximaMusicaSetlist() {
+  if (!setlistAtualIds.length) {
+    alert("Abra uma música por uma setlist primeiro.");
+    return;
+  }
+
+  if (setlistAtualIndice < 0) {
+    setlistAtualIndice = 0;
+  } else if (setlistAtualIndice < setlistAtualIds.length - 1) {
     setlistAtualIndice++;
-    await abrir(setlistAtualIds[setlistAtualIndice]);
   } else {
     alert("Fim da setlist.");
+    return;
   }
+
+  await abrir(setlistAtualIds[setlistAtualIndice]);
 }
 
 async function musicaAnteriorSetlist() {
-  if (!setlistAtualIds.length) return;
+  if (!setlistAtualIds.length) {
+    alert("Abra uma música por uma setlist primeiro.");
+    return;
+  }
 
   if (setlistAtualIndice > 0) {
     setlistAtualIndice--;
-    await abrir(setlistAtualIds[setlistAtualIndice]);
   } else {
     alert("Primeira música da setlist.");
-  }
-}
-
-function obterPreferencias() {
-  try {
-    return JSON.parse(localStorage.getItem(PREFS_KEY)) || {
-      theme: "dark",
-      accent: "#22c55e",
-      fontScale: 0,
-      background: "dark"
-    };
-  } catch {
-    return {
-      theme: "dark",
-      accent: "#22c55e",
-      fontScale: 0,
-      background: "dark"
-    };
-  }
-}
-
-function limparFundos() {
-  document.body.classList.remove(
-    "bg-pastel-green",
-    "bg-pastel-blue",
-    "bg-pastel-pink",
-    "bg-pastel-yellow",
-    "bg-strong-purple",
-    "bg-strong-blue",
-    "bg-strong-green",
-    "bg-strong-red"
-  );
-}
-
-function aplicarPreferenciasNaTela(prefs) {
-  prefs = prefs || obterPreferencias();
-
-  limparFundos();
-
-  document.body.classList.toggle("light-theme", prefs.background === "light");
-
-  if (prefs.background && !["dark", "light"].includes(prefs.background)) {
-    document.body.classList.add("bg-" + prefs.background);
-  }
-
-  document.documentElement.style.setProperty("--accent", prefs.accent || "#22c55e");
-
-  const escala = prefs.fontScale || 0;
-  document.documentElement.style.setProperty("--font-size-base", `${16 + escala}px`);
-  document.documentElement.style.setProperty("--font-size-title", `${24 + escala}px`);
-  document.documentElement.style.setProperty("--font-size-pre", `${17 + escala}px`);
-
-  if (accentSelect) accentSelect.value = prefs.accent || "#22c55e";
-
-  const bgSelect = document.getElementById("bgSelect");
-  if (bgSelect) bgSelect.value = prefs.background || "dark";
-}
-
-async function aplicarFundoSelecionado() {
-  const prefs = obterPreferencias();
-  const bgSelect = document.getElementById("bgSelect");
-
-  prefs.background = bgSelect ? bgSelect.value : "dark";
-  prefs.theme = prefs.background === "light" ? "light" : "dark";
-
-  await salvarPreferencias(prefs);
-  aplicarPreferenciasNaTela(prefs);
-}
-
-window.addEventListener("load", () => {
-  aplicarPreferenciasNaTela(obterPreferencias());
-});
-
-/* ===== AJUSTES: E7M, QUEBRA RESPONSIVA, PALCO E PAINÉIS ===== */
-
-const regexAcordeCompletoCorrigido =
-  /^([A-G](?:#|b)?)(?:maj7|maj|min|m|M|7M|6M|9M|11M|13M|dim|aug|sus|add|alt|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?(?:[#b+\-]\d+)?(?:\/[A-G](?:#|b)?)?$/;
-
-function linhaPareceCifra(linha) {
-  const texto = String(linha || "").trim();
-  if (!texto) return false;
-
-  const palavras = texto.split(/\s+/);
-
-  const acordes = palavras.filter(p => {
-    const limpa = p.replace(/[|,;.]/g, "");
-    return regexAcordeCompletoCorrigido.test(limpa);
-  });
-
-  const proporcao = acordes.length / palavras.length;
-
-  return acordes.length >= 1 && (proporcao >= 0.35 || palavras.length <= 8);
-}
-
-function processarLinhaComAcordes(linha, passos) {
-  return linha.replace(
-    /(^|[\s([{|])([A-G](?:#|b)?(?:maj7|maj|min|m|M|7M|6M|9M|11M|13M|dim|aug|sus|add|alt|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?(?:[#b+\-]\d+)?(?:\/[A-G](?:#|b)?)?)(?=$|[\s)\]}|.,;:])/g,
-    (match, antes, acorde) => `${antes}<span class="acorde">${transporAcorde(acorde, passos)}</span>`
-  );
-}
-
-function deveUsarQuebraResponsiva() {
-  const telaPequena = window.innerWidth <= 760;
-  const palcoMobile = document.body.classList.contains("modo-palco") && window.innerWidth <= 900;
-  return telaPequena || palcoMobile;
-}
-
-function dividirLinha(texto, limite) {
-  const partes = [];
-  let resto = String(texto || "");
-
-  while (resto.length > limite) {
-    let corte = resto.lastIndexOf(" ", limite);
-    if (corte < 12) corte = limite;
-
-    partes.push(resto.slice(0, corte));
-    resto = resto.slice(corte).trimStart();
-  }
-
-  partes.push(resto);
-  return partes;
-}
-
-function processarResponsivo(texto, passos) {
-  const linhas = String(texto || "").split("\n");
-  const resultado = [];
-
-  const limite =
-    document.body.classList.contains("modo-palco")
-      ? 28
-      : window.innerWidth <= 380
-        ? 28
-        : 34;
-
-  for (let i = 0; i < linhas.length; i++) {
-    const linha = linhas[i] || "";
-    const proxima = linhas[i + 1] || "";
-
-    if (linhaPareceCifra(linha) && proxima && !linhaPareceCifra(proxima)) {
-      const blocosLetra = dividirLinha(proxima, limite);
-      let pos = 0;
-
-      blocosLetra.forEach(blocoLetra => {
-        const parteCifra = linha.slice(pos, pos + blocoLetra.length);
-
-        resultado.push(processarLinhaComAcordes(escapeHtml(parteCifra), passos));
-        resultado.push(escapeHtml(blocoLetra));
-
-        pos += blocoLetra.length + 1;
-      });
-
-      i++;
-      continue;
-    }
-
-    if (!linhaPareceCifra(linha) && linha.length > limite) {
-      dividirLinha(linha, limite).forEach(parte => {
-        resultado.push(escapeHtml(parte));
-      });
-      continue;
-    }
-
-    resultado.push(
-      linhaPareceCifra(linha)
-        ? processarLinhaComAcordes(escapeHtml(linha), passos)
-        : escapeHtml(linha)
-    );
-  }
-
-  return resultado.join("\n");
-}
-
-function atualizarVisualizacao() {
-  if (!original.trim()) {
-    output.textContent = "Abra ou digite uma música para visualizar aqui.";
     return;
   }
 
-  output.innerHTML = deveUsarQuebraResponsiva()
-    ? processarResponsivo(original, semitons)
-    : processar(original, semitons);
+  await abrir(setlistAtualIds[setlistAtualIndice]);
 }
 
-function iniciarControlesPalco() {
-  if (document.getElementById("controlePalco")) return;
-
-  const controle = document.createElement("div");
-  controle.id = "controlePalco";
-
-  controle.innerHTML = `
-    <button onclick="toggleRolagemAutomatica()">▶</button>
-    <button onclick="diminuirVelocidadeRolagem()">−</button>
-    <button onclick="aumentarVelocidadeRolagem()">+</button>
-    <button class="setlist-only" onclick="musicaAnteriorSetlist()">⬅️</button>
-    <button class="setlist-only" onclick="proximaMusicaSetlist()">➡️</button>
-    <button onclick="toggleModoPalco()">✕</button>
-  `;
-
-  document.body.appendChild(controle);
-}
-
-function fecharPainel() {
-  document.querySelectorAll(".bottom-sheet-panel").forEach(p => {
-    p.classList.remove("visible");
-    p.style.bottom = "";
-  });
-
-  document.getElementById("panelOverlay")?.classList.remove("visible");
-
-  if (typeof liberarBottomNav === "function") {
-    liberarBottomNav();
-  }
-
-  document.activeElement?.blur();
-}
-
-window.addEventListener("resize", () => {
-  atualizarVisualizacao();
-});
-
-function diminuirVelocidadeRolagem() {
-  velocidadeRolagem = Math.max(1, velocidadeRolagem - 1);
-  if (scrollAutomatico) iniciarRolagemAutomatica();
-}
-
-function aumentarVelocidadeRolagem() {
-  velocidadeRolagem = Math.min(6, velocidadeRolagem + 1);
-  if (scrollAutomatico) iniciarRolagemAutomatica();
-}
-
-/* ===== TELA INICIAL ===== */
-
-function abrirInicio() {
-
-  fecharPainel();
-
-  abrirPainel(
-    "inicio"
-  );
-
-  carregarInicio();
-
-}
-
-async function carregarInicio() {
-
-  const musicas =
-    await buscarMusicasOnlineOuOffline();
-
-  const recentes =
-    obterRecentes();
-
-  const favoritos =
-    obterFavoritos();
-
-  const setlists =
-    await buscarSetlistsOnlineOuOffline();
-
-  const recentesDiv =
-    document.getElementById(
-      "inicioRecentes"
-    );
-
-  const favDiv =
-    document.getElementById(
-      "inicioFavoritas"
-    );
-
-  const setDiv =
-    document.getElementById(
-      "inicioSetlists"
-    );
-
-  recentesDiv.innerHTML = "";
-
-  recentes
-  .slice(0,5)
-  .forEach(id => {
-
-    const m =
-      musicas.find(
-        x => x.id === id
-      );
-
-    if (!m) return;
-
-    recentesDiv.innerHTML += `
-      <div class="song-item">
-        <button
-          onclick="
-          abrir('${m.id}');
-          fecharPainel();
-          ">
-          ${m.titulo}
-        </button>
-      </div>
-    `;
-
-  });
-
-  favDiv.innerHTML = "";
-
-  favoritos
-  .slice(0,5)
-  .forEach(id => {
-
-    const m =
-      musicas.find(
-        x => x.id === id
-      );
-
-    if (!m) return;
-
-    favDiv.innerHTML += `
-      <div class="song-item">
-        <button
-          onclick="
-          abrir('${m.id}');
-          fecharPainel();
-          ">
-          ⭐ ${m.titulo}
-        </button>
-      </div>
-    `;
-
-  });
-
-  setDiv.innerHTML = "";
-
-  setlists
-  .slice(0,5)
-  .forEach(s => {
-
-    setDiv.innerHTML += `
-      <div class="song-item">
-        <button
-          onclick="
-          abrirSetlist(
-          '${s.id}'
-          );
-          fecharPainel();
-          ">
-          📋 ${s.nome}
-        </button>
-      </div>
-    `;
-
-  });
-
-}
-
-function continuarUltimaMusica() {
-
-  const recentes =
-    obterRecentes();
-
-  if (
-    !recentes.length
-  ) {
-
-    alert(
-      "Nenhuma música recente."
-    );
-
-    return;
-
-  }
-
-  abrir(
-    recentes[0]
-  );
-
-  fecharPainel();
-
-}
-
-/* ===== RETOMAR SETLIST EM ANDAMENTO ===== */
-
-let setlistEmAndamentoId =
-  localStorage.getItem("setlistEmAndamentoId") || "";
+let setlistEmAndamentoId = localStorage.getItem("setlistEmAndamentoId") || "";
 
 function salvarSetlistEmAndamento(id) {
   setlistEmAndamentoId = id || "";
   localStorage.setItem("setlistEmAndamentoId", setlistEmAndamentoId);
-}
-
-const abrirSetlistOriginal = abrirSetlist;
-
-async function abrirSetlist(setlistId) {
-  salvarSetlistEmAndamento(setlistId);
-  await abrirSetlistOriginal(setlistId);
 }
 
 async function retomarSetlistEmAndamento() {
@@ -3556,7 +3246,7 @@ async function retomarSetlistEmAndamento() {
     return;
   }
 
-  await abrirPainel("setlists");
+  abrirPainel("setlists");
   await abrirSetlist(id);
 }
 
@@ -3575,78 +3265,16 @@ async function abrirProximaDaSetlistEmAndamento() {
   await proximaMusicaSetlist();
 }
 
-/* ===== CORREÇÃO BOTÃO INÍCIO ===== */
+/* ---------- MODAL DE SELEÇÃO DE MÚSICAS ---------- */
 
-const abrirPainelOriginal = abrirPainel;
-
-function abrirPainel(tipo) {
-  fecharPainel();
-
-  if (tipo === "inicio") {
-    document.getElementById("painelInicio")?.classList.add("visible");
-    document.getElementById("panelOverlay")?.classList.add("visible");
-    esconderBottomNav?.();
-    carregarInicio?.();
-    return;
-  }
-
-  abrirPainelOriginal(tipo);
-}
-
-function abrirInicio() {
-  abrirPainel("inicio");
-}
-
-/* ===== TELA INICIAL COMO TELA PRINCIPAL ===== */
-
-function mostrarInicio() {
-  fecharPainel();
-
-  const inicio = document.getElementById("telaInicio");
-  const cifra = document.getElementById("telaCifra");
-
-  if (inicio) inicio.style.display = "block";
-  if (cifra) cifra.style.display = "none";
-
-  history.replaceState(null, "", location.pathname);
-
-  carregarInicio();
-}
-
-function mostrarCifra() {
-  const inicio = document.getElementById("telaInicio");
-  const cifra = document.getElementById("telaCifra");
-
-  if (inicio) inicio.style.display = "none";
-  if (cifra) cifra.style.display = "block";
-}
-
-function abrirInicio() {
-  mostrarInicio();
-}
-
-const abrirOriginalInicio = abrir;
-
-async function abrir(id) {
-  mostrarCifra();
-  await abrirOriginalInicio(id);
-}
-
-window.addEventListener("load", () => {
-  setTimeout(() => {
-    if (!musicaAbertaId) {
-      mostrarInicio();
-    }
-  }, 800);
-});
-
-/* ===== MODAL DE SELEÇÃO DE MÚSICAS PARA SETLIST ===== */
-
-let setlistSelecionandoId = "";
 let musicasSelecionadasSetlist = new Set();
 
 async function adicionarMusicaNaSetlist(setlistId) {
-  setlistSelecionandoId = setlistId;
+  if (!user) {
+    alert("Faça login primeiro.");
+    return;
+  }
+
   musicasSelecionadasSetlist = new Set();
 
   const setlists = await buscarSetlistsOnlineOuOffline();
@@ -3664,29 +3292,68 @@ async function adicionarMusicaNaSetlist(setlistId) {
     .filter(m => !idsAtuais.includes(m.id))
     .sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "pt-BR"));
 
-  abrirModalSelecaoMusicas(
-    "Adicionar músicas",
-    disponiveis,
-    async () => {
-      const escolhidas = Array.from(musicasSelecionadasSetlist);
+  abrirModalSelecaoMusicas("Adicionar músicas", disponiveis, async () => {
+    const escolhidas = Array.from(musicasSelecionadasSetlist);
 
-      if (!escolhidas.length) {
-        alert("Selecione pelo menos uma música.");
-        return;
-      }
-
-      await db.collection("setlists").doc(setlistId).update({
-        musicas: [...idsAtuais, ...escolhidas],
-        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-      fecharModalSelecaoMusicas();
-      await carregarPainelSetlists();
-      await abrirSetlist(setlistId);
-
-      alert("Música(s) adicionada(s).");
+    if (!escolhidas.length) {
+      alert("Selecione pelo menos uma música.");
+      return;
     }
-  );
+
+    await db.collection("setlists").doc(setlistId).update({
+      musicas: [...idsAtuais, ...escolhidas],
+      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    fecharModalSelecaoMusicas();
+    await buscarSetlistsOnlineOuOffline();
+    await carregarPainelSetlists();
+    await abrirSetlist(setlistId);
+
+    alert("Música(s) adicionada(s).");
+  });
+}
+
+async function selecionarRemoverMusicasDaSetlist(setlistId) {
+  if (!user) {
+    alert("Faça login primeiro.");
+    return;
+  }
+
+  const setlists = await buscarSetlistsOnlineOuOffline();
+  const setlist = setlists.find(s => s.id === setlistId);
+
+  if (!setlist) return;
+
+  const musicasBase = await buscarMusicasOnlineOuOffline();
+
+  const musicasDaSetlist = (setlist.musicas || [])
+    .map(id => musicasBase.find(m => m.id === id))
+    .filter(Boolean);
+
+  musicasSelecionadasSetlist = new Set();
+
+  abrirModalSelecaoMusicas("Remover músicas", musicasDaSetlist, async () => {
+    const remover = Array.from(musicasSelecionadasSetlist);
+
+    if (!remover.length) {
+      alert("Selecione pelo menos uma música.");
+      return;
+    }
+
+    const novas = (setlist.musicas || []).filter(id => !remover.includes(id));
+
+    await db.collection("setlists").doc(setlistId).update({
+      musicas: novas,
+      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    fecharModalSelecaoMusicas();
+    await carregarPainelSetlists();
+    await abrirSetlist(setlistId);
+
+    alert("Música(s) removida(s).");
+  });
 }
 
 function abrirModalSelecaoMusicas(titulo, musicas, aoConfirmar) {
@@ -3700,13 +3367,7 @@ function abrirModalSelecaoMusicas(titulo, musicas, aoConfirmar) {
     modal.innerHTML = `
       <div class="modal-box">
         <div id="modalSelecaoTitulo" class="modal-title"></div>
-
-        <input
-          id="buscaSelecaoMusicas"
-          placeholder="Buscar música..."
-          oninput="filtrarModalSelecaoMusicas()"
-        >
-
+        <input id="buscaSelecaoMusicas" placeholder="Buscar música..." oninput="filtrarModalSelecaoMusicas()">
         <div id="listaSelecaoMusicas"></div>
 
         <div class="modal-actions">
@@ -3721,7 +3382,6 @@ function abrirModalSelecaoMusicas(titulo, musicas, aoConfirmar) {
 
   document.getElementById("modalSelecaoTitulo").innerText = titulo;
   modal.dataset.musicas = JSON.stringify(musicas || []);
-
   document.getElementById("btnConfirmarSelecaoMusicas").onclick = aoConfirmar;
 
   modal.classList.add("visible");
@@ -3785,535 +3445,20 @@ function fecharModalSelecaoMusicas() {
   document.getElementById("modalSelecaoMusicas")?.classList.remove("visible");
 }
 
-async function selecionarRemoverMusicasDaSetlist(setlistId) {
-  const setlists = await buscarSetlistsOnlineOuOffline();
-  const setlist = setlists.find(s => s.id === setlistId);
+/* ---------- ROLAGEM E MODO PALCO ---------- */
 
-  if (!setlist) return;
-
-  const musicasBase = await buscarMusicasOnlineOuOffline();
-  const musicasDaSetlist = (setlist.musicas || [])
-    .map(id => musicasBase.find(m => m.id === id))
-    .filter(Boolean);
-
-  musicasSelecionadasSetlist = new Set();
-
-  abrirModalSelecaoMusicas(
-    "Remover músicas",
-    musicasDaSetlist,
-    async () => {
-      const remover = Array.from(musicasSelecionadasSetlist);
-
-      if (!remover.length) {
-        alert("Selecione pelo menos uma música.");
-        return;
-      }
-
-      const novas = (setlist.musicas || []).filter(id => !remover.includes(id));
-
-      await db.collection("setlists").doc(setlistId).update({
-        musicas: novas,
-        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-      fecharModalSelecaoMusicas();
-      await carregarPainelSetlists();
-      await abrirSetlist(setlistId);
-
-      alert("Música(s) removida(s).");
-    }
-  );
-}
-
-/* ===== CORREÇÃO ACORDES Bm7, E7M, C#m7 ETC ===== */
-
-function transporAcorde(acorde, passos) {
-  const texto = String(acorde || "").trim();
-
-  const match = texto.match(
-    /^([A-G](?:#|b)?)(.*?)(?:\/([A-G](?:#|b)?))?$/
-  );
-
-  if (!match) return acorde;
-
-  const notaBase = match[1];
-  const sufixo = match[2] || "";
-  const baixo = match[3] || "";
-
-  const novaNota = transporNota(notaBase, passos);
-  const novoBaixo = baixo ? "/" + transporNota(baixo, passos) : "";
-
-  return novaNota + sufixo + novoBaixo;
-}
-
-function processarLinhaComAcordes(linha, passos) {
-  return linha.replace(
-    /(^|[\s([{|])([A-G](?:#|b)?(?:maj7|maj|min|m|M|7M|6M|9M|11M|13M|dim|aug|sus|add|alt|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?(?:[#b+\-]\d+)?(?:\/[A-G](?:#|b)?)?)(?=$|[\s)\]}|.,;:])/g,
-    (match, antes, acorde) => {
-      return `${antes}<span class="acorde">${transporAcorde(acorde, passos)}</span>`;
-    }
-  );
-}
-
-/* ===== CORREÇÃO FINAL: BARRA INFERIOR ===== */
-
-function abrirPainel(tipo) {
-  document.querySelectorAll(".bottom-sheet-panel").forEach(p => {
-    p.classList.remove("visible");
-    p.style.bottom = "";
-  });
-
-  document.getElementById("panelOverlay")?.classList.remove("visible");
-
-  const mapa = {
-    buscar: "painelBusca",
-    pastas: "painelPastas",
-    musicas: "painelMusicas",
-    setlists: "painelSetlists",
-    inicio: "painelInicio"
-  };
-
-  if (tipo === "inicio") {
-    mostrarInicio();
-    return;
-  }
-
-  const painel = document.getElementById(mapa[tipo]);
-
-  if (!painel) {
-    console.warn("Painel não encontrado:", tipo);
-    return;
-  }
-
-  painel.classList.add("visible");
-  document.getElementById("panelOverlay")?.classList.add("visible");
-
-  if (typeof esconderBottomNav === "function") {
-    esconderBottomNav();
-  }
-
-  if (tipo === "buscar") {
-    setTimeout(() => busca?.focus(), 250);
-  }
-
-  if (tipo === "pastas") carregarPainelPastas();
-  if (tipo === "musicas") carregarTodasMusicas();
-  if (tipo === "setlists") carregarPainelSetlists();
-}
-
-function fecharPainel() {
-  document.querySelectorAll(".bottom-sheet-panel").forEach(p => {
-    p.classList.remove("visible");
-    p.style.bottom = "";
-  });
-
-  document.getElementById("panelOverlay")?.classList.remove("visible");
-
-  if (typeof liberarBottomNav === "function") {
-    liberarBottomNav();
-  }
-
-  document.activeElement?.blur();
-}
-
-function abrirInicio() {
-  fecharPainel();
-  mostrarInicio();
-}
-
-/* ===== CORREÇÃO FINAL: ABRIR MÚSICA ===== */
-
-async function abrir(id) {
-  const inicio = document.getElementById("telaInicio");
-  const cifra = document.getElementById("telaCifra");
-
-  if (inicio) inicio.style.display = "none";
-  if (cifra) cifra.style.display = "block";
-
-  let m = null;
-
-  try {
-    const doc = await db.collection("musicas").doc(id).get();
-
-    if (doc.exists) {
-      m = { id: doc.id, ...doc.data() };
-    }
-  } catch (erro) {
-    console.log("Falha online. Tentando offline.");
-  }
-
-  if (!m) {
-    const offline = carregarMusicasOffline();
-    m = offline.find(item => item.id === id);
-  }
-
-  if (!m) {
-    alert("Música não encontrada.");
-    return;
-  }
-
-  musicaAbertaId = id;
-  original = m.musica || "";
-  semitons = 0;
-
-  history.replaceState(null, "", `?musica=${id}`);
-  salvarRecente(id);
-
-  atualizarCabecalhoMusica(
-    m.titulo || "",
-    m.artista || "",
-    m.capo || "",
-    m.youtube || "",
-    m.tom || ""
-  );
-
-  atualizarVisualizacao();
-  fecharPainel();
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
-}
-
-/* ===== PACOTE DE ESTABILIZAÇÃO FINAL ===== */
-
-function mostrarCifra() {
-  document.getElementById("telaInicio")?.style.setProperty("display", "none");
-  document.getElementById("telaCifra")?.style.setProperty("display", "block");
-}
-
-function mostrarInicio() {
-  fecharPainel();
-  document.getElementById("telaInicio")?.style.setProperty("display", "block");
-  document.getElementById("telaCifra")?.style.setProperty("display", "none");
-  carregarInicio();
-}
-
-function abrirInicio() {
-  mostrarInicio();
-}
-
-/* abrir música */
-async function abrir(id) {
-  mostrarCifra();
-
-  let m = null;
-
-  try {
-    const doc = await db.collection("musicas").doc(id).get();
-    if (doc.exists) m = { id: doc.id, ...doc.data() };
-  } catch {}
-
-  if (!m) {
-    m = carregarMusicasOffline().find(x => x.id === id);
-  }
-
-  if (!m) {
-    alert("Música não encontrada.");
-    return;
-  }
-
-  musicaAbertaId = id;
-  original = m.musica || "";
-  semitons = 0;
-
-  salvarRecente(id);
-  history.replaceState(null, "", `?musica=${id}`);
-
-  atualizarCabecalhoMusica(
-    m.titulo || "",
-    m.artista || "",
-    m.capo || "",
-    m.youtube || "",
-    m.tom || ""
-  );
-
-  atualizarVisualizacao();
-  fecharPainel();
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-/* painel */
-function abrirPainel(tipo) {
-  fecharPainel();
-
-  if (tipo === "inicio") {
-    mostrarInicio();
-    return;
-  }
-
-  const mapa = {
-    buscar: "painelBusca",
-    pastas: "painelPastas",
-    musicas: "painelMusicas",
-    setlists: "painelSetlists"
-  };
-
-  const painel = document.getElementById(mapa[tipo]);
-  if (!painel) return;
-
-  painel.classList.add("visible");
-  document.getElementById("panelOverlay")?.classList.add("visible");
-  esconderBottomNav?.();
-
-  if (tipo === "buscar") setTimeout(() => busca?.focus(), 250);
-  if (tipo === "pastas") carregarPainelPastas();
-  if (tipo === "musicas") carregarTodasMusicas();
-  if (tipo === "setlists") carregarPainelSetlists();
-}
-
-function fecharPainel() {
-  document.querySelectorAll(".bottom-sheet-panel").forEach(p => {
-    p.classList.remove("visible");
-    p.style.bottom = "";
-  });
-
-  document.getElementById("panelOverlay")?.classList.remove("visible");
-  liberarBottomNav?.();
-}
-
-/* início */
-async function carregarInicio() {
-  const musicas = await buscarMusicasOnlineOuOffline();
-  const setlists = await buscarSetlistsOnlineOuOffline();
-  const recentes = obterRecentes();
-  const favoritos = obterFavoritos();
-
-  preencherListaInicio("inicioRecentes", recentes.map(id => musicas.find(m => m.id === id)).filter(Boolean));
-  preencherListaInicio("inicioFavoritas", favoritos.map(id => musicas.find(m => m.id === id)).filter(Boolean));
-  preencherListaSetlistsInicio("inicioSetlists", setlists.slice(0, 5));
-}
-
-function preencherListaInicio(id, lista) {
-  const div = document.getElementById(id);
-  if (!div) return;
-
-  div.innerHTML = "";
-
-  if (!lista.length) {
-    div.innerHTML = `<div class="empty-state">Nada por aqui ainda.</div>`;
-    return;
-  }
-
-  lista.slice(0, 5).forEach(m => {
-    div.innerHTML += `
-      <div class="song-item inicio-compacto">
-        <button onclick="abrir('${m.id}')">
-          ${escapeHtml(m.titulo || "Sem título")}
-        </button>
-      </div>
-    `;
-  });
-}
-
-function preencherListaSetlistsInicio(id, lista) {
-  const div = document.getElementById(id);
-  if (!div) return;
-
-  div.innerHTML = "";
-
-  if (!lista.length) {
-    div.innerHTML = `<div class="empty-state">Nenhuma setlist ainda.</div>`;
-    return;
-  }
-
-  lista.slice(0, 5).forEach(s => {
-    div.innerHTML += `
-      <div class="song-item inicio-compacto">
-        <button onclick="abrirPainel('setlists'); abrirSetlist('${s.id}')">
-          📋 ${escapeHtml(s.nome || "Setlist")}
-        </button>
-      </div>
-    `;
-  });
-}
-
-/* setlists visíveis para todos logados */
-async function carregarPainelSetlists() {
-  listaSetlists.innerHTML = "Carregando setlists...";
-  listaSetlistsVazia.style.display = "none";
-
-  const setlists = await buscarSetlistsOnlineOuOffline();
-
-  const todas = setlists
-    .sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
-
-  listaSetlists.innerHTML = "";
-
-  if (!todas.length) {
-    listaSetlistsVazia.innerText = "Nenhuma setlist criada ainda.";
-    listaSetlistsVazia.style.display = "block";
-    return;
-  }
-
-  todas.forEach(setlist => {
-    const div = document.createElement("div");
-    div.className = "song-item";
-
-    const podeExcluir = user && (setlist.uid === user.uid || ehAdmin());
-
-    div.innerHTML = `
-      <div class="song-item-title">📋 ${escapeHtml(setlist.nome || "Setlist sem nome")}</div>
-      <div class="song-item-author">Músicas: ${(setlist.musicas || []).length}</div>
-
-      <div class="result-actions">
-        <button onclick="abrirSetlist('${setlist.id}')">Abrir</button>
-        <button onclick="editarNomeSetlist('${setlist.id}')">Editar nome</button>
-        <button onclick="adicionarMusicaNaSetlist('${setlist.id}')">Add músicas</button>
-        ${podeExcluir ? `<button class="danger" onclick="excluirSetlist('${setlist.id}')">Excluir</button>` : ""}
-      </div>
-    `;
-
-    listaSetlists.appendChild(div);
-  });
-}
-
-async function abrirSetlist(setlistId) {
-  salvarSetlistEmAndamento?.(setlistId);
-  history.replaceState(null, "", `?setlist=${setlistId}`);
-
-  const setlists = await buscarSetlistsOnlineOuOffline();
-  const setlist = setlists.find(s => s.id === setlistId);
-
-  if (!setlist) {
-    alert("Setlist não encontrada.");
-    return;
-  }
-
-  tituloMusicasDaSetlist.innerHTML = `
-    Músicas em: ${escapeHtml(setlist.nome || "Setlist")}
-    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
-      <button onclick="adicionarMusicaNaSetlist('${setlistId}')">+ Add músicas</button>
-      <button class="danger" onclick="selecionarRemoverMusicasDaSetlist('${setlistId}')">Remover várias</button>
-    </div>
-  `;
-
-  listaMusicasDaSetlist.innerHTML = "Carregando músicas...";
-  listaMusicasDaSetlistVazia.style.display = "none";
-
-  const musicasBase = await buscarMusicasOnlineOuOffline();
-
-  setlistAtualIds = setlist.musicas || [];
-  setlistAtualIndice = -1;
-
-  const musicas = setlistAtualIds
-    .map(id => musicasBase.find(m => m.id === id))
-    .filter(Boolean);
-
-  listaMusicasDaSetlist.innerHTML = "";
-
-  if (!musicas.length) {
-    listaMusicasDaSetlistVazia.innerText = "Nenhuma música nesta setlist.";
-    listaMusicasDaSetlistVazia.style.display = "block";
-    return;
-  }
-
-  musicas.forEach((m, index) => {
-    const div = document.createElement("div");
-    div.className = "song-item";
-
-    div.innerHTML = `
-      <div class="song-item-title">${index + 1}. ${escapeHtml(m.titulo || "Sem título")}</div>
-      <div class="song-item-artist">${escapeHtml(m.artista || "Artista não informado")}</div>
-
-      <div class="result-actions">
-        <button onclick="abrirMusicaDaSetlist('${m.id}'); fecharPainel();">Abrir</button>
-        <button onclick="moverMusicaNaSetlist('${setlistId}', '${m.id}', -1)">⬆️</button>
-        <button onclick="moverMusicaNaSetlist('${setlistId}', '${m.id}', 1)">⬇️</button>
-        <button onclick="removerMusicaDaSetlist('${setlistId}', '${m.id}')">Remover</button>
-      </div>
-    `;
-
-    listaMusicasDaSetlist.appendChild(div);
-  });
-}
-
-async function abrirMusicaDaSetlist(id) {
-  setlistAtualIndice = setlistAtualIds.indexOf(id);
-  document.body.classList.add("tem-setlist-ativa");
-  await abrir(id);
-}
-
-async function proximaMusicaSetlist() {
-  if (!setlistAtualIds.length) return;
-
-  if (setlistAtualIndice < 0) setlistAtualIndice = 0;
-  else if (setlistAtualIndice < setlistAtualIds.length - 1) setlistAtualIndice++;
-  else {
-    alert("Fim da setlist.");
-    return;
-  }
-
-  await abrir(setlistAtualIds[setlistAtualIndice]);
-}
-
-async function musicaAnteriorSetlist() {
-  if (!setlistAtualIds.length) return;
-
-  if (setlistAtualIndice > 0) setlistAtualIndice--;
-  else {
-    alert("Primeira música da setlist.");
-    return;
-  }
-
-  await abrir(setlistAtualIds[setlistAtualIndice]);
-}
-
-/* rolagem e modo palco */
 function toggleModoPalco() {
   modoPalcoAtivo = !modoPalcoAtivo;
   document.body.classList.toggle("modo-palco", modoPalcoAtivo);
 
   if (modoPalcoAtivo) {
     iniciarControlesPalco();
-    atualizarVisualizacao();
   } else {
     pararRolagemAutomatica();
     document.getElementById("controlePalco")?.remove();
-    atualizarVisualizacao();
-  }
-}
-
-function toggleRolagemAutomatica() {
-  if (scrollAutomatico) pararRolagemAutomatica();
-  else iniciarRolagemAutomatica();
-}
-
-function iniciarRolagemAutomatica() {
-  if (scrollAnimationId) cancelAnimationFrame(scrollAnimationId);
-
-  scrollAutomatico = true;
-
-  document.getElementById("btnAutoScroll")?.replaceChildren(document.createTextNode("⏸"));
-  document.getElementById("btn-scroll-palco")?.replaceChildren(document.createTextNode("⏸"));
-
-  let ultima = performance.now();
-
-  function passo(agora) {
-    if (!scrollAutomatico) return;
-
-    if (agora - ultima >= 35) {
-      window.scrollBy(0, velocidadeRolagem || 2);
-      ultima = agora;
-    }
-
-    scrollAnimationId = requestAnimationFrame(passo);
   }
 
-  scrollAnimationId = requestAnimationFrame(passo);
-}
-
-function pararRolagemAutomatica() {
-  scrollAutomatico = false;
-
-  if (scrollAnimationId) {
-    cancelAnimationFrame(scrollAnimationId);
-    scrollAnimationId = null;
-  }
-
-  document.getElementById("btnAutoScroll")?.replaceChildren(document.createTextNode("▶ Rolar"));
-  document.getElementById("btn-scroll-palco")?.replaceChildren(document.createTextNode("▶"));
+  atualizarVisualizacao();
 }
 
 function iniciarControlesPalco() {
@@ -4334,14 +3479,122 @@ function iniciarControlesPalco() {
   document.body.appendChild(controle);
 }
 
+function iniciarRolagemAutomatica() {
+  pararRolagemAutomatica();
+
+  scrollAutomatico = true;
+
+  const btn1 = document.getElementById("btnAutoScroll");
+  const btn2 = document.getElementById("btn-scroll-palco");
+
+  if (btn1) btn1.innerText = "⏸ Pausar";
+  if (btn2) btn2.innerText = "⏸";
+
+  intervaloRolagemAuto = setInterval(() => {
+    window.scrollBy({
+      top: velocidadeRolagem,
+      left: 0,
+      behavior: "auto"
+    });
+  }, 40);
+}
+
+function pararRolagemAutomatica() {
+  scrollAutomatico = false;
+
+  if (intervaloRolagemAuto) {
+    clearInterval(intervaloRolagemAuto);
+    intervaloRolagemAuto = null;
+  }
+
+  const btn1 = document.getElementById("btnAutoScroll");
+  const btn2 = document.getElementById("btn-scroll-palco");
+
+  if (btn1) btn1.innerText = "▶ Rolar";
+  if (btn2) btn2.innerText = "▶";
+}
+
+function toggleRolagemAutomatica() {
+  if (scrollAutomatico) {
+    pararRolagemAutomatica();
+  } else {
+    iniciarRolagemAutomatica();
+  }
+}
+
 function diminuirVelocidadeRolagem() {
-  velocidadeRolagem = Math.max(1, (velocidadeRolagem || 2) - 1);
+  velocidadeRolagem = Math.max(1, velocidadeRolagem - 1);
 }
 
 function aumentarVelocidadeRolagem() {
-  velocidadeRolagem = Math.min(10, (velocidadeRolagem || 2) + 1);
+  velocidadeRolagem = Math.min(10, velocidadeRolagem + 1);
 }
 
+/* ---------- ACORDES CORRIGIDOS ---------- */
+
+function transporAcorde(acorde, passos) {
+  const texto = String(acorde || "").trim();
+
+  const match = texto.match(
+    /^([A-G](?:#|b)?)(.*?)(?:\/([A-G](?:#|b)?))?$/
+  );
+
+  if (!match) return acorde;
+
+  const notaBase = match[1];
+  const sufixo = match[2] || "";
+  const baixo = match[3] || "";
+
+  return transporNota(notaBase, passos) + sufixo + (baixo ? "/" + transporNota(baixo, passos) : "");
+}
+
+function linhaPareceCifra(linha) {
+  const texto = String(linha || "").trim();
+  if (!texto) return false;
+
+  const regexAcordeCompleto =
+    /^([A-G](?:#|b)?)(?:maj7|maj|min|m|M|7M|6M|9M|11M|13M|dim|aug|sus|add|alt|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?(?:[#b+\-]\d+)?(?:\/[A-G](?:#|b)?)?$/;
+
+  const palavras = texto.split(/\s+/);
+
+  const acordes = palavras.filter(p => {
+    const limpa = p.replace(/[|,;.]/g, "");
+    return regexAcordeCompleto.test(limpa);
+  });
+
+  const proporcao = acordes.length / palavras.length;
+
+  return acordes.length >= 1 && (proporcao >= 0.35 || palavras.length <= 8);
+}
+
+function processarLinhaComAcordes(linha, passos) {
+  return linha.replace(
+    /(^|[\s([{|])([A-G](?:#|b)?(?:maj7|maj|min|m|M|7M|6M|9M|11M|13M|dim|aug|sus|add|alt|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?(?:[#b+\-]\d+)?(?:\/[A-G](?:#|b)?)?)(?=$|[\s)\]}|.,;:])/g,
+    (match, antes, acorde) => `${antes}<span class="acorde">${transporAcorde(acorde, passos)}</span>`
+  );
+}
+
+function deveUsarQuebraResponsiva() {
+  return window.innerWidth <= 760 ||
+    (document.body.classList.contains("modo-palco") && window.innerWidth <= 900);
+}
+
+function atualizarVisualizacao() {
+  if (!original.trim()) {
+    output.textContent = "Abra ou digite uma música para visualizar aqui.";
+    return;
+  }
+
+  output.innerHTML = deveUsarQuebraResponsiva()
+    ? processarResponsivo(original, semitons)
+    : processar(original, semitons);
+}
+
+/* ---------- INICIALIZAÇÃO ---------- */
+
 window.addEventListener("load", () => {
-  setTimeout(carregarInicio, 1000);
+  setTimeout(() => {
+    carregarInicio();
+    if (!musicaAbertaId) mostrarInicio();
+  }, 800);
 });
