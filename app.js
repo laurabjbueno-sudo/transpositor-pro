@@ -3854,3 +3854,69 @@ function processarLinhaComAcordes(linha, passos) {
     }
   );
 }
+
+/* ===== CORREÇÃO FINAL: BARRA INFERIOR ===== */
+
+function abrirPainel(tipo) {
+  document.querySelectorAll(".bottom-sheet-panel").forEach(p => {
+    p.classList.remove("visible");
+    p.style.bottom = "";
+  });
+
+  document.getElementById("panelOverlay")?.classList.remove("visible");
+
+  const mapa = {
+    buscar: "painelBusca",
+    pastas: "painelPastas",
+    musicas: "painelMusicas",
+    setlists: "painelSetlists",
+    inicio: "painelInicio"
+  };
+
+  if (tipo === "inicio") {
+    mostrarInicio();
+    return;
+  }
+
+  const painel = document.getElementById(mapa[tipo]);
+
+  if (!painel) {
+    console.warn("Painel não encontrado:", tipo);
+    return;
+  }
+
+  painel.classList.add("visible");
+  document.getElementById("panelOverlay")?.classList.add("visible");
+
+  if (typeof esconderBottomNav === "function") {
+    esconderBottomNav();
+  }
+
+  if (tipo === "buscar") {
+    setTimeout(() => busca?.focus(), 250);
+  }
+
+  if (tipo === "pastas") carregarPainelPastas();
+  if (tipo === "musicas") carregarTodasMusicas();
+  if (tipo === "setlists") carregarPainelSetlists();
+}
+
+function fecharPainel() {
+  document.querySelectorAll(".bottom-sheet-panel").forEach(p => {
+    p.classList.remove("visible");
+    p.style.bottom = "";
+  });
+
+  document.getElementById("panelOverlay")?.classList.remove("visible");
+
+  if (typeof liberarBottomNav === "function") {
+    liberarBottomNav();
+  }
+
+  document.activeElement?.blur();
+}
+
+function abrirInicio() {
+  fecharPainel();
+  mostrarInicio();
+}
