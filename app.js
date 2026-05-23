@@ -439,17 +439,16 @@ atualizarCabecalhoMusica(
   liberarBottomNav();
 }
 
-    async function login() {
+   async function login() {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
 
     await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
     if (isMobile) {
-      localStorage.setItem("loginRedirectPendente", "sim");
       await auth.signInWithRedirect(provider);
       return;
     }
@@ -1801,6 +1800,10 @@ function carregarSetlistsOffline() {
   }
 }
 
+function salvarSetlistsOffline(lista) {
+  localStorage.setItem("transpositor-setlists-offline", JSON.stringify(lista || []));
+}
+
 async function buscarSetlistsOnlineOuOffline() {
   try {
     const snap = await db.collection("setlists").get();
@@ -1834,44 +1837,18 @@ async function criarSetlist() {
   const nome = prompt("Nome da setlist/repertório:");
   if (!nome || !nome.trim()) return;
 
-  const payload = {
+  await db.collection("setlists").add({
     nome: nome.trim(),
-    musicas: []
-  };
+    musicas: [],
+    uid: user.uid,
+    autorNome: user.displayName || user.email || "Usuário",
+    autorEmail: user.email || "",
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
 
-  try {
-    await db.collection("setlists").add({
-      ...payload,
-      uid: user.uid,
-      autorNome: user.displayName || user.email || "Usuário",
-      autorEmail: user.email || "",
-      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    await carregarPainelSetlists();
-    alert("Setlist criada.");
-  } catch (erro) {
-    adicionarNaFilaOffline({
-      tipo: "criarSetlist",
-      payload
-    });
-
-    const setlistOffline = {
-      id: "offline-setlist-" + Date.now(),
-      ...payload,
-      uid: user.uid,
-      autorNome: user.displayName || user.email || "Usuário",
-      autorEmail: user.email || ""
-    };
-
-    const setlists = await carregarColecaoOffline("setlists");
-    await salvarColecaoOffline("setlists", [...setlists, setlistOffline]);
-
-    await carregarPainelSetlists();
-
-    alert("Sem internet. Setlist salva offline e será sincronizada depois.");
-  }
+  await carregarPainelSetlists();
+  alert("Setlist criada.");
 }
 
 async function carregarPainelSetlists() {
@@ -2578,6 +2555,29 @@ if (localStorage.getItem("loginRedirectPendente") === "sim") {
       alert("Erro no retorno mobile: " + erro.code + " - " + erro.message);
     });
 }
+
+auth.getRedirectResult()
+  .then((result) => {
+    if (result && result.user) {
+      console.log(
+        "Login mobile concluído:",
+        result.user.email
+      );
+    }
+  })
+  .catch((erro) => {
+    console.error(
+      "Erro retorno mobile:",
+      erro
+    );
+
+    alert(
+      "Erro login mobile: "
+      + erro.code
+      + " - "
+      + erro.message
+    );
+  });
 
     auth.onAuthStateChanged(async (u) => {
       user = u || null;
