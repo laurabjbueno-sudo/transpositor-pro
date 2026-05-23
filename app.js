@@ -1821,111 +1821,86 @@ function favoritarMusicaAberta() {
 
 let modoPalcoAtivo = false;
 let scrollAutomatico = null;
-let velocidadeRolagem = 2;
+/* ===== VELOCIDADE DA ROLAGEM ===== */
 
-function toggleModoPalco() {
-  modoPalcoAtivo = !modoPalcoAtivo;
+let velocidadeRolagem = 3;
 
-  document.body.classList.toggle("modo-palco", modoPalcoAtivo);
+function diminuirVelocidadeRolagem() {
+  velocidadeRolagem = Math.max(1, velocidadeRolagem - 1);
 
-  if (modoPalcoAtivo) {
-    iniciarControlesPalco();
-  } else {
+  if (scrollAutomatico) {
     pararRolagemAutomatica();
-    removerControlesPalco();
+    iniciarRolagemAutomatica();
   }
 }
 
-function iniciarControlesPalco() {
-  if (document.getElementById("controlePalco")) return;
+function aumentarVelocidadeRolagem() {
+  velocidadeRolagem = Math.min(10, velocidadeRolagem + 1);
 
-  const controle = document.createElement("div");
-  controle.id = "controlePalco";
-
-  controle.style.position = "fixed";
-  controle.style.left = "50%";
-  controle.style.bottom = "14px";
-  controle.style.transform = "translateX(-50%)";
-  controle.style.zIndex = "5000";
-  controle.style.display = "flex";
-  controle.style.gap = "8px";
-  controle.style.flexWrap = "wrap";
-  controle.style.alignItems = "center";
-  controle.style.opacity = "1";
-  controle.style.transition = "opacity .25s ease";
-
-  controle.innerHTML = `
-    <button id="btn-scroll-palco" onclick="iniciarRolagemAutomatica()">▶ Rolar</button>
-    <button onclick="pararRolagemAutomatica()">⏸</button>
-    <label style="display:flex;align-items:center;gap:6px;color:var(--text);font-size:13px;">
-      Vel.
-      <input type="range" min="1" max="6" value="${velocidadeRolagem}"
-        oninput="ajustarVelocidadeRolagem(this.value)"
-        style="width:90px;margin:0;">
-    </label>
-    <button onclick="musicaAnteriorSetlist()">⬅️</button>
-    <button onclick="proximaMusicaSetlist()">➡️</button>
-    <button onclick="toggleModoPalco()">❌</button>
-  `;
-
-  document.body.appendChild(controle);
-
-  setTimeout(() => {
-    if (document.body.classList.contains("modo-palco")) {
-      controle.style.opacity = "0.25";
-    }
-  }, 4000);
-
-  controle.addEventListener("mouseenter", () => {
-    controle.style.opacity = "1";
-  });
-
-  controle.addEventListener("mouseleave", () => {
-    controle.style.opacity = "0.25";
-  });
+  if (scrollAutomatico) {
+    pararRolagemAutomatica();
+    iniciarRolagemAutomatica();
+  }
 }
-
-function obterVelocidadeScroll() {
-  const v = Number(velocidadeRolagem || 2);
-  const mapa = { 1: 80, 2: 55, 3: 38, 4: 25, 5: 16, 6: 9 };
-  return mapa[v] || 55;
-}
-
-function ajustarVelocidadeRolagem(valor) {
-  velocidadeRolagem = Number(valor || 2);
-  if (scrollAutomatico) iniciarRolagemAutomatica();
-}
-
-function removerControlesPalco() {
-  document.getElementById("controlePalco")?.remove();
-}
-
-let scrollAnimationId = null; // Guarda o identificador da animação fluida
 
 function iniciarRolagemAutomatica() {
-  if (scrollAnimationId) cancelAnimationFrame(scrollAnimationId);
-  scrollAutomatico = true;
-  const btnScrollPalco = document.getElementById("btn-scroll-palco");
-  if (btnScrollPalco) btnScrollPalco.innerHTML = "⏸ Pausar";
-  
-  const velocidade = obterVelocidadeScroll();
-  // Quanto menor a velocidade selecionada, mais tempo espera para mover
-  let ultimaExecucao = performance.now();
 
-  function darPassoDeRolagem(tempoAtual) {
-    if (!scrollAutomatico) return;
-
-    // Controla o ritmo baseado na velocidade escolhida pelo usuário
-    if (tempoAtual - ultimaExecucao >= velocidade) {
-      window.scrollBy(0, 1);
-      ultimaExecucao = tempoAtual;
-    }
-
-    // Pede ao navegador para rodar o próximo frame de forma suave
-    scrollAnimationId = requestAnimationFrame(darPassoDeRolagem);
+  if (scrollAnimationId) {
+    cancelAnimationFrame(scrollAnimationId);
   }
 
-  scrollAnimationId = requestAnimationFrame(darPassoDeRolagem);
+  scrollAutomatico = true;
+
+  const btn =
+    document.getElementById(
+      "btnAutoScroll"
+    );
+
+  if (btn) {
+    btn.innerText =
+      "⏸";
+  }
+
+  let ultima =
+    performance.now();
+
+  function passo(
+    agora
+  ) {
+
+    if (
+      !scrollAutomatico
+    ) return;
+
+    if (
+      agora -
+      ultima
+      >=
+      35
+    ) {
+
+      window.scrollBy(
+        0,
+        velocidadeRolagem
+      );
+
+      ultima =
+        agora;
+
+    }
+
+    scrollAnimationId =
+      requestAnimationFrame(
+        passo
+      );
+
+  }
+
+  scrollAnimationId =
+    requestAnimationFrame(
+      passo
+    );
+
 }
 
 function pararRolagemAutomatica() {
@@ -3359,8 +3334,8 @@ function iniciarControlesPalco() {
 
   controle.innerHTML = `
     <button onclick="toggleRolagemAutomatica()">▶</button>
-    <button onclick="ajustarVelocidadeRolagem(1)">−</button>
-    <button onclick="ajustarVelocidadeRolagem(6)">+</button>
+    <button onclick="diminuirVelocidadeRolagem()">−</button>
+    <button onclick="aumentarVelocidadeRolagem()">+</button>
     <button class="setlist-only" onclick="musicaAnteriorSetlist()">⬅️</button>
     <button class="setlist-only" onclick="proximaMusicaSetlist()">➡️</button>
     <button onclick="toggleModoPalco()">✕</button>
@@ -3387,3 +3362,203 @@ function fecharPainel() {
 window.addEventListener("resize", () => {
   atualizarVisualizacao();
 });
+
+function diminuirVelocidadeRolagem() {
+  velocidadeRolagem = Math.max(1, velocidadeRolagem - 1);
+  if (scrollAutomatico) iniciarRolagemAutomatica();
+}
+
+function aumentarVelocidadeRolagem() {
+  velocidadeRolagem = Math.min(6, velocidadeRolagem + 1);
+  if (scrollAutomatico) iniciarRolagemAutomatica();
+}
+
+/* ===== TELA INICIAL ===== */
+
+function abrirInicio() {
+
+  fecharPainel();
+
+  abrirPainel(
+    "inicio"
+  );
+
+  carregarInicio();
+
+}
+
+async function carregarInicio() {
+
+  const musicas =
+    await buscarMusicasOnlineOuOffline();
+
+  const recentes =
+    obterRecentes();
+
+  const favoritos =
+    obterFavoritos();
+
+  const setlists =
+    await buscarSetlistsOnlineOuOffline();
+
+  const recentesDiv =
+    document.getElementById(
+      "inicioRecentes"
+    );
+
+  const favDiv =
+    document.getElementById(
+      "inicioFavoritas"
+    );
+
+  const setDiv =
+    document.getElementById(
+      "inicioSetlists"
+    );
+
+  recentesDiv.innerHTML = "";
+
+  recentes
+  .slice(0,5)
+  .forEach(id => {
+
+    const m =
+      musicas.find(
+        x => x.id === id
+      );
+
+    if (!m) return;
+
+    recentesDiv.innerHTML += `
+      <div class="song-item">
+        <button
+          onclick="
+          abrir('${m.id}');
+          fecharPainel();
+          ">
+          ${m.titulo}
+        </button>
+      </div>
+    `;
+
+  });
+
+  favDiv.innerHTML = "";
+
+  favoritos
+  .slice(0,5)
+  .forEach(id => {
+
+    const m =
+      musicas.find(
+        x => x.id === id
+      );
+
+    if (!m) return;
+
+    favDiv.innerHTML += `
+      <div class="song-item">
+        <button
+          onclick="
+          abrir('${m.id}');
+          fecharPainel();
+          ">
+          ⭐ ${m.titulo}
+        </button>
+      </div>
+    `;
+
+  });
+
+  setDiv.innerHTML = "";
+
+  setlists
+  .slice(0,5)
+  .forEach(s => {
+
+    setDiv.innerHTML += `
+      <div class="song-item">
+        <button
+          onclick="
+          abrirSetlist(
+          '${s.id}'
+          );
+          fecharPainel();
+          ">
+          📋 ${s.nome}
+        </button>
+      </div>
+    `;
+
+  });
+
+}
+
+function continuarUltimaMusica() {
+
+  const recentes =
+    obterRecentes();
+
+  if (
+    !recentes.length
+  ) {
+
+    alert(
+      "Nenhuma música recente."
+    );
+
+    return;
+
+  }
+
+  abrir(
+    recentes[0]
+  );
+
+  fecharPainel();
+
+}
+
+/* ===== RETOMAR SETLIST EM ANDAMENTO ===== */
+
+let setlistEmAndamentoId =
+  localStorage.getItem("setlistEmAndamentoId") || "";
+
+function salvarSetlistEmAndamento(id) {
+  setlistEmAndamentoId = id || "";
+  localStorage.setItem("setlistEmAndamentoId", setlistEmAndamentoId);
+}
+
+const abrirSetlistOriginal = abrirSetlist;
+
+async function abrirSetlist(setlistId) {
+  salvarSetlistEmAndamento(setlistId);
+  await abrirSetlistOriginal(setlistId);
+}
+
+async function retomarSetlistEmAndamento() {
+  const id = localStorage.getItem("setlistEmAndamentoId");
+
+  if (!id) {
+    alert("Nenhuma setlist em andamento.");
+    return;
+  }
+
+  await abrirPainel("setlists");
+  await abrirSetlist(id);
+}
+
+async function abrirProximaDaSetlistEmAndamento() {
+  const id = localStorage.getItem("setlistEmAndamentoId");
+
+  if (!id) {
+    alert("Nenhuma setlist em andamento.");
+    return;
+  }
+
+  if (!setlistAtualIds.length) {
+    await abrirSetlist(id);
+  }
+
+  await proximaMusicaSetlist();
+}

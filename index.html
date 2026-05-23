@@ -1285,6 +1285,81 @@ body.modo-palco pre {
   </div>
 </section>
 
+<section id="painelInicio" class="bottom-sheet-panel">
+
+  <div class="panel-header">
+    <div class="section-title" style="margin-bottom:0;">
+      Início
+    </div>
+
+    <button class="secondary"
+      onclick="fecharPainel()">
+      Fechar
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      Acesso rápido
+    </div>
+
+    <div class="result-actions">
+
+      <button onclick="continuarUltimaMusica()">
+        ▶ Continuar
+      </button>
+
+<button onclick="retomarSetlistEmAndamento()">
+  📋 Retomar setlist
+</button>
+
+<button onclick="abrirProximaDaSetlistEmAndamento()">
+  ▶ Próxima da setlist
+</button>
+
+      <button onclick="abrirPainel('buscar')">
+        🔎 Buscar
+      </button>
+
+      <button onclick="abrirFormularioNovaMusica()">
+        ➕ Nova
+      </button>
+
+      <button onclick="toggleModoPalco()">
+        🎤 Palco
+      </button>
+
+
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      Recentes
+    </div>
+
+    <div id="inicioRecentes"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      Favoritas
+    </div>
+
+    <div id="inicioFavoritas"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      Setlists recentes
+    </div>
+
+    <div id="inicioSetlists"></div>
+  </div>
+
+</section>
+
+
   <main class="main-content">
       <div class="container">
         <div class="card">
@@ -1370,6 +1445,7 @@ body.modo-palco pre {
   </div>
 
 <div id="bottomNav" class="bottom-nav">
+  <button onclick="abrirInicio()">🏠 Início</button>
   <button onclick="abrirPainel('buscar')">🔎 Buscar</button>
   <button onclick="abrirPainel('pastas')">📁 Pastas</button>
   <button onclick="abrirPainel('musicas')">🎼 Músicas</button>
