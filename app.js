@@ -2030,26 +2030,38 @@ const setlists = await buscarSetlistsOnlineOuOffline();
     return;
   }
 
-  tituloMusicasDaSetlist.textContent = `Músicas em: ${setlist.nome || "Setlist"}`;
-  listaMusicasDaSetlist.innerHTML = "Carregando músicas...";
-  listaMusicasDaSetlistVazia.style.display = "none";
+  tituloMusicasDaSetlist.innerHTML = `
+  Músicas em: ${escapeHtml(setlist.nome || "Setlist")}
+  <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+    <button onclick="adicionarMusicaNaSetlist('${setlistId}')">
+      + Add músicas
+    </button>
 
-  const musicasBase = await buscarMusicasOnlineOuOffline();
-  const ids = setlist.musicas || [];
- setlistAtualIds = ids;
- setlistAtualIndice = -1;
+    <button class="danger" onclick="selecionarRemoverMusicasDaSetlist('${setlistId}')">
+      Remover várias
+    </button>
+  </div>
+`;
 
-  const musicas = ids
-    .map(id => musicasBase.find(m => m.id === id))
-    .filter(Boolean);
+listaMusicasDaSetlist.innerHTML = "Carregando músicas...";
+listaMusicasDaSetlistVazia.style.display = "none";
 
-  listaMusicasDaSetlist.innerHTML = "";
+const musicasBase = await buscarMusicasOnlineOuOffline();
 
-  if (!musicas.length) {
-    listaMusicasDaSetlistVazia.textContent = "Nenhuma música nesta setlist.";
-    listaMusicasDaSetlistVazia.style.display = "block";
-    return;
-  }
+setlistAtualIds = setlist.musicas || [];
+setlistAtualIndice = -1;
+
+const musicas = setlistAtualIds
+  .map(id => musicasBase.find(m => m.id === id))
+  .filter(Boolean);
+
+listaMusicasDaSetlist.innerHTML = "";
+
+if (!musicas.length) {
+  listaMusicasDaSetlistVazia.innerText = "Nenhuma música nesta setlist.";
+  listaMusicasDaSetlistVazia.style.display = "block";
+  return;
+}
 
   musicas.forEach((m, index) => {
     const div = document.createElement("div");
@@ -3583,4 +3595,262 @@ function abrirPainel(tipo) {
 
 function abrirInicio() {
   abrirPainel("inicio");
+}
+
+/* ===== TELA INICIAL COMO TELA PRINCIPAL ===== */
+
+function mostrarInicio() {
+  fecharPainel();
+
+  const inicio = document.getElementById("telaInicio");
+  const cifra = document.getElementById("telaCifra");
+
+  if (inicio) inicio.style.display = "block";
+  if (cifra) cifra.style.display = "none";
+
+  history.replaceState(null, "", location.pathname);
+
+  carregarInicio();
+}
+
+function mostrarCifra() {
+  const inicio = document.getElementById("telaInicio");
+  const cifra = document.getElementById("telaCifra");
+
+  if (inicio) inicio.style.display = "none";
+  if (cifra) cifra.style.display = "block";
+}
+
+function abrirInicio() {
+  mostrarInicio();
+}
+
+const abrirOriginalInicio = abrir;
+
+async function abrir(id) {
+  mostrarCifra();
+  await abrirOriginalInicio(id);
+}
+
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    if (!musicaAbertaId) {
+      mostrarInicio();
+    }
+  }, 800);
+});
+
+/* ===== MODAL DE SELEÇÃO DE MÚSICAS PARA SETLIST ===== */
+
+let setlistSelecionandoId = "";
+let musicasSelecionadasSetlist = new Set();
+
+async function adicionarMusicaNaSetlist(setlistId) {
+  setlistSelecionandoId = setlistId;
+  musicasSelecionadasSetlist = new Set();
+
+  const setlists = await buscarSetlistsOnlineOuOffline();
+  const setlist = setlists.find(s => s.id === setlistId);
+
+  if (!setlist) {
+    alert("Setlist não encontrada.");
+    return;
+  }
+
+  const musicas = await buscarMusicasOnlineOuOffline();
+  const idsAtuais = setlist.musicas || [];
+
+  const disponiveis = musicas
+    .filter(m => !idsAtuais.includes(m.id))
+    .sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "pt-BR"));
+
+  abrirModalSelecaoMusicas(
+    "Adicionar músicas",
+    disponiveis,
+    async () => {
+      const escolhidas = Array.from(musicasSelecionadasSetlist);
+
+      if (!escolhidas.length) {
+        alert("Selecione pelo menos uma música.");
+        return;
+      }
+
+      await db.collection("setlists").doc(setlistId).update({
+        musicas: [...idsAtuais, ...escolhidas],
+        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      fecharModalSelecaoMusicas();
+      await carregarPainelSetlists();
+      await abrirSetlist(setlistId);
+
+      alert("Música(s) adicionada(s).");
+    }
+  );
+}
+
+function abrirModalSelecaoMusicas(titulo, musicas, aoConfirmar) {
+  let modal = document.getElementById("modalSelecaoMusicas");
+
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "modalSelecaoMusicas";
+    modal.className = "modal-overlay";
+
+    modal.innerHTML = `
+      <div class="modal-box">
+        <div id="modalSelecaoTitulo" class="modal-title"></div>
+
+        <input
+          id="buscaSelecaoMusicas"
+          placeholder="Buscar música..."
+          oninput="filtrarModalSelecaoMusicas()"
+        >
+
+        <div id="listaSelecaoMusicas"></div>
+
+        <div class="modal-actions">
+          <button class="primary" id="btnConfirmarSelecaoMusicas">Confirmar</button>
+          <button class="secondary" onclick="fecharModalSelecaoMusicas()">Cancelar</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+  }
+
+  document.getElementById("modalSelecaoTitulo").innerText = titulo;
+  modal.dataset.musicas = JSON.stringify(musicas || []);
+
+  document.getElementById("btnConfirmarSelecaoMusicas").onclick = aoConfirmar;
+
+  modal.classList.add("visible");
+  renderizarModalSelecaoMusicas(musicas);
+}
+
+function renderizarModalSelecaoMusicas(musicas) {
+  const lista = document.getElementById("listaSelecaoMusicas");
+  lista.innerHTML = "";
+
+  if (!musicas.length) {
+    lista.innerHTML = `<div class="empty-state">Nenhuma música disponível.</div>`;
+    return;
+  }
+
+  musicas.forEach(m => {
+    const marcada = musicasSelecionadasSetlist.has(m.id);
+
+    const item = document.createElement("div");
+    item.className = "song-item";
+    item.style.cursor = "pointer";
+
+    item.onclick = () => {
+      if (musicasSelecionadasSetlist.has(m.id)) {
+        musicasSelecionadasSetlist.delete(m.id);
+      } else {
+        musicasSelecionadasSetlist.add(m.id);
+      }
+
+      renderizarModalSelecaoMusicas(
+        JSON.parse(document.getElementById("modalSelecaoMusicas").dataset.musicas || "[]")
+      );
+    };
+
+    item.innerHTML = `
+      <div class="song-item-title">
+        ${marcada ? "✅" : "⬜"} ${escapeHtml(m.titulo || "Sem título")}
+      </div>
+      <div class="song-item-artist">
+        ${escapeHtml(m.artista || "Artista não informado")}
+      </div>
+    `;
+
+    lista.appendChild(item);
+  });
+}
+
+function filtrarModalSelecaoMusicas() {
+  const modal = document.getElementById("modalSelecaoMusicas");
+  const todas = JSON.parse(modal.dataset.musicas || "[]");
+  const termo = normalizarTexto(document.getElementById("buscaSelecaoMusicas").value || "");
+
+  const filtradas = todas.filter(m =>
+    normalizarTexto(`${m.titulo || ""} ${m.artista || ""}`).includes(termo)
+  );
+
+  renderizarModalSelecaoMusicas(filtradas);
+}
+
+function fecharModalSelecaoMusicas() {
+  document.getElementById("modalSelecaoMusicas")?.classList.remove("visible");
+}
+
+async function selecionarRemoverMusicasDaSetlist(setlistId) {
+  const setlists = await buscarSetlistsOnlineOuOffline();
+  const setlist = setlists.find(s => s.id === setlistId);
+
+  if (!setlist) return;
+
+  const musicasBase = await buscarMusicasOnlineOuOffline();
+  const musicasDaSetlist = (setlist.musicas || [])
+    .map(id => musicasBase.find(m => m.id === id))
+    .filter(Boolean);
+
+  musicasSelecionadasSetlist = new Set();
+
+  abrirModalSelecaoMusicas(
+    "Remover músicas",
+    musicasDaSetlist,
+    async () => {
+      const remover = Array.from(musicasSelecionadasSetlist);
+
+      if (!remover.length) {
+        alert("Selecione pelo menos uma música.");
+        return;
+      }
+
+      const novas = (setlist.musicas || []).filter(id => !remover.includes(id));
+
+      await db.collection("setlists").doc(setlistId).update({
+        musicas: novas,
+        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      fecharModalSelecaoMusicas();
+      await carregarPainelSetlists();
+      await abrirSetlist(setlistId);
+
+      alert("Música(s) removida(s).");
+    }
+  );
+}
+
+/* ===== CORREÇÃO ACORDES Bm7, E7M, C#m7 ETC ===== */
+
+function transporAcorde(acorde, passos) {
+  const texto = String(acorde || "").trim();
+
+  const match = texto.match(
+    /^([A-G](?:#|b)?)(.*?)(?:\/([A-G](?:#|b)?))?$/
+  );
+
+  if (!match) return acorde;
+
+  const notaBase = match[1];
+  const sufixo = match[2] || "";
+  const baixo = match[3] || "";
+
+  const novaNota = transporNota(notaBase, passos);
+  const novoBaixo = baixo ? "/" + transporNota(baixo, passos) : "";
+
+  return novaNota + sufixo + novoBaixo;
+}
+
+function processarLinhaComAcordes(linha, passos) {
+  return linha.replace(
+    /(^|[\s([{|])([A-G](?:#|b)?(?:maj7|maj|min|m|M|7M|6M|9M|11M|13M|dim|aug|sus|add|alt|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?(?:[#b+\-]\d+)?(?:\/[A-G](?:#|b)?)?)(?=$|[\s)\]}|.,;:])/g,
+    (match, antes, acorde) => {
+      return `${antes}<span class="acorde">${transporAcorde(acorde, passos)}</span>`;
+    }
+  );
 }
