@@ -442,18 +442,15 @@ atualizarCabecalhoMusica(
    async function login() {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: "select_account" });
+
+    provider.setCustomParameters({
+      prompt: "select_account"
+    });
 
     await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-
-    if (isMobile) {
-      await auth.signInWithRedirect(provider);
-      return;
-    }
-
     const result = await auth.signInWithPopup(provider);
+
     console.log("Login realizado:", result.user.email);
 
   } catch (erro) {
@@ -2541,14 +2538,7 @@ async function alternarTemaRapido() {
 }
 
 if (localStorage.getItem("loginRedirectPendente") === "sim") {
-  auth.getRedirectResult()
-    .then((result) => {
-      localStorage.removeItem("loginRedirectPendente");
-
-      if (result && result.user) {
-        console.log("Login mobile concluído:", result.user.email);
-      }
-    })
+ 
     .catch((erro) => {
       localStorage.removeItem("loginRedirectPendente");
       console.error("Erro no retorno mobile:", erro);
@@ -2556,15 +2546,6 @@ if (localStorage.getItem("loginRedirectPendente") === "sim") {
     });
 }
 
-auth.getRedirectResult()
-  .then((result) => {
-    if (result && result.user) {
-      console.log(
-        "Login mobile concluído:",
-        result.user.email
-      );
-    }
-  })
   .catch((erro) => {
     console.error(
       "Erro retorno mobile:",
