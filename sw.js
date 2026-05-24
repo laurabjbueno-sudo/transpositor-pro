@@ -1,4 +1,4 @@
-const CACHE_NAME = "transpositor-pro-v61";
+const CACHE_NAME = "transpositor-pro-v62";
 
 const FILES_TO_CACHE = [
   "./",
