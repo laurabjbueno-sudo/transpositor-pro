@@ -1303,7 +1303,7 @@ async function carregarTodasMusicas() {
     container.appendChild(item);
   });
 }
-}
+
 async function carregarPainelPastas() {
   if (!user && !estaOffline()) {
     listaPastas.innerHTML = "";
