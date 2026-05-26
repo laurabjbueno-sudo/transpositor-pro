@@ -36,7 +36,10 @@ function estaOffline() {
 
 const regexAcorde = /^([A-G](?:#|b)?)(.*)$/;
 const PADRAO_ACORDE_TEXTO = String.raw`[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|alt|m|M|°|ø|\+|-)?(?:\d+)?(?:M|maj|min)?(?:\([^)]+\))?(?:[#b+\-]\d+)*)?(?:\/[A-G](?:#|b)?)?`;
-const regexAcordeNaLinha = new RegExp(`(^|[\s([{|])(${PADRAO_ACORDE_TEXTO})(?=$|[\s)\]}|.,;:])`, "g");
+const regexAcordeNaLinha = new RegExp(
+  String.raw`(^|[\s([{|])(${PADRAO_ACORDE_TEXTO})(?=$|[\s)\]}|.,;:])`,
+  "g"
+);
 
     const busca = document.getElementById("busca");
     const output = document.getElementById("output");
