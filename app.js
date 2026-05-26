@@ -2850,7 +2850,7 @@ if (carregarMusicasOffline().length) {
 }
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=10").catch(console.error);
+      navigator.serviceWorker.register("./sw.js?v=65").catch(console.error);
     }
 
 window.addEventListener("online", async () => {
@@ -3130,3 +3130,4 @@ window.addEventListener("load", () => {
 window.login = login;
 window.loginGoogle = loginGoogle;
 window.logout = logout;
+window.editarPerfil = editarPerfil;
