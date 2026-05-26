@@ -103,6 +103,9 @@ const profileEmailTop = document.getElementById("profileEmailTop");
 const profileDropdown = document.getElementById("profileDropdown");
 const bottomNav = document.getElementById("bottomNav");
 
+let perfilUsuarioAtual = null;
+let loginRedirectEmProcessamento = false;
+
     const PREFS_KEY = "transpositor-preferencias";
 
     function fecharPainel() {
@@ -605,14 +608,55 @@ atualizarCabecalhoMusica(
       prompt: "select_account"
     });
 
+    auth.useDeviceLanguage();
     await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    localStorage.setItem("loginRedirectPendente", "1");
-    await auth.signInWithRedirect(provider);
 
+    localStorage.setItem("loginRedirectPendente", "1");
+    localStorage.setItem("loginRedirectInicio", String(Date.now()));
+
+    await auth.signInWithRedirect(provider);
   } catch (erro) {
-    console.error("Erro no login:", erro);
+    console.error("Erro ao iniciar login:", erro);
     localStorage.removeItem("loginRedirectPendente");
-    alert("Erro no login: " + erro.code + " - " + erro.message);
+    alert("Erro ao iniciar login: " + erro.code + " - " + erro.message);
+  }
+}
+
+async function finalizarLoginRedirect() {
+  if (loginRedirectEmProcessamento) return;
+  loginRedirectEmProcessamento = true;
+
+  try {
+    const result = await auth.getRedirectResult();
+
+    if (result && result.user) {
+      console.log("Login por redirecionamento finalizado:", result.user.email);
+      localStorage.removeItem("loginRedirectPendente");
+      localStorage.removeItem("loginRedirectInicio");
+    }
+  } catch (erro) {
+    console.error("Erro ao finalizar redirect:", erro);
+
+    const pendente = localStorage.getItem("loginRedirectPendente");
+
+    if (pendente) {
+      localStorage.removeItem("loginRedirectPendente");
+      localStorage.removeItem("loginRedirectInicio");
+      alert(
+        "O login voltou do Google, mas o navegador não concluiu a sessão. " +
+        "Confira se o domínio do Cloudflare está autorizado no Firebase Authentication e tente abrir pelo Chrome/Safari normal, fora do modo anônimo.
+
+" +
+        "Erro: " + erro.code
+      );
+    }
+  } finally {
+    if (auth.currentUser) {
+      localStorage.removeItem("loginRedirectPendente");
+      localStorage.removeItem("loginRedirectInicio");
+    }
+
+    loginRedirectEmProcessamento = false;
   }
 }
 
@@ -2476,17 +2520,87 @@ await salvarColecaoOffline("musicas", musicasOffline);
         .replaceAll("'", "&#039;");
     }
 
+function obterNomePerfil(u) {
+  return (
+    perfilUsuarioAtual?.nomePerfil ||
+    perfilUsuarioAtual?.nome ||
+    u?.displayName ||
+    u?.email ||
+    "Usuária"
+  );
+}
+
+function obterFotoPerfil(u) {
+  return (
+    perfilUsuarioAtual?.fotoPerfil ||
+    perfilUsuarioAtual?.foto ||
+    u?.photoURL ||
+    "https://via.placeholder.com/52?text=U"
+  );
+}
+
+async function editarPerfil() {
+  if (!user) {
+    alert("Faça login primeiro.");
+    return;
+  }
+
+  const nomeAtual = obterNomePerfil(user);
+  const fotoAtual = obterFotoPerfil(user);
+
+  const novoNome = prompt("Nome que aparecerá no app:", nomeAtual);
+  if (novoNome === null) return;
+
+  const novoNomeLimpo = novoNome.trim() || nomeAtual;
+
+  const novaFoto = prompt(
+    "Link da foto de perfil (opcional).
+
+Você pode colar um link de imagem. Se deixar vazio, usaremos a foto do Google.",
+    fotoAtual && !fotoAtual.includes("via.placeholder.com") ? fotoAtual : ""
+  );
+
+  if (novaFoto === null) return;
+
+  const novaFotoLimpa = novaFoto.trim();
+
+  try {
+    const dadosPerfil = {
+      nomePerfil: novoNomeLimpo,
+      fotoPerfil: novaFotoLimpa || user.photoURL || "",
+      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    await db.collection("usuarios").doc(user.uid).set(dadosPerfil, { merge: true });
+
+    perfilUsuarioAtual = {
+      ...(perfilUsuarioAtual || {}),
+      ...dadosPerfil
+    };
+
+    atualizarAreaAuth(user);
+    alert("Perfil atualizado.");
+  } catch (erro) {
+    console.error("Erro ao atualizar perfil:", erro);
+    alert("Não foi possível atualizar o perfil agora.");
+  }
+}
+
     function atualizarAreaAuth(u) {
   if (u) {
     loginBtn.style.display = "none";
 
     profileTopBox.classList.add("visible");
-    profilePhotoTop.src = u.photoURL || "https://via.placeholder.com/52?text=U";
-    profileNameTop.textContent = u.displayName || "Usuária";
+    profilePhotoTop.src = obterFotoPerfil(u);
+    profilePhotoTop.onerror = () => {
+      profilePhotoTop.src = u.photoURL || "https://via.placeholder.com/52?text=U";
+    };
+    profileNameTop.textContent = obterNomePerfil(u);
     profileEmailTop.textContent = u.email || "";
   } else {
     loginBtn.style.display = "inline-flex";
 
+    perfilUsuarioAtual = null;
     profileTopBox.classList.remove("visible");
     profilePhotoTop.removeAttribute("src");
     profileNameTop.textContent = "";
@@ -2613,10 +2727,13 @@ auth.getRedirectResult()
     localStorage.removeItem("loginRedirectPendente");
   });
 
+finalizarLoginRedirect();
+
     auth.onAuthStateChanged(async (u) => {
       user = u || null;
       usuarioAtual = u || null;
       roleAtual = "user";
+      perfilUsuarioAtual = null;
 
       atualizarAreaAuth(user);
 
@@ -2633,16 +2750,32 @@ auth.getRedirectResult()
               nome: u.displayName || "",
               email: u.email || "",
               foto: u.photoURL || "",
+              nomePerfil: u.displayName || u.email || "Usuária",
+              fotoPerfil: u.photoURL || "",
               role: "user",
               criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
               ultimoLogin: firebase.firestore.FieldValue.serverTimestamp()
             });
 
             roleAtual = "user";
+            perfilUsuarioAtual = {
+              uid: u.uid,
+              nomePerfil: u.displayName || u.email || "Usuária",
+              fotoPerfil: u.photoURL || "",
+              role: "user"
+            };
             console.log("Usuário criado com sucesso");
           } else {
             const dadosUsuario = doc.data();
             roleAtual = dadosUsuario.role || "user";
+            perfilUsuarioAtual = dadosUsuario;
+
+            await userRef.set({
+              uid: u.uid,
+              nome: u.displayName || dadosUsuario.nome || "",
+              email: u.email || dadosUsuario.email || "",
+              foto: u.photoURL || dadosUsuario.foto || "",
+            }, { merge: true });
 
             await userRef.update({
               ultimoLogin: firebase.firestore.FieldValue.serverTimestamp()
@@ -2658,6 +2791,8 @@ auth.getRedirectResult()
       } else {
         console.log("Nenhum usuário logado");
       }
+
+      atualizarAreaAuth(user);
 
       if (busca.value.trim()) {
         await carregarLista();
@@ -2762,7 +2897,7 @@ if (carregarMusicasOffline().length) {
 }
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=9").catch(console.error);
+      navigator.serviceWorker.register("./sw.js?v=10").catch(console.error);
     }
 
 window.addEventListener("online", async () => {
