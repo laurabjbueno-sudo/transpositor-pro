@@ -600,6 +600,7 @@ atualizarCabecalhoMusica(
   liberarBottomNav();
 }
 
+
    async function login() {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -608,57 +609,22 @@ atualizarCabecalhoMusica(
       prompt: "select_account"
     });
 
-    auth.useDeviceLanguage();
     await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-    localStorage.setItem("loginRedirectPendente", "1");
-    localStorage.setItem("loginRedirectInicio", String(Date.now()));
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    await auth.signInWithRedirect(provider);
+    if (isMobile) {
+      await auth.signInWithRedirect(provider);
+    } else {
+      await auth.signInWithPopup(provider);
+    }
+
   } catch (erro) {
-    console.error("Erro ao iniciar login:", erro);
-    localStorage.removeItem("loginRedirectPendente");
-    alert("Erro ao iniciar login: " + erro.code + " - " + erro.message);
+    console.error("Erro no login:", erro);
+    alert("Erro no login: " + erro.code + " - " + erro.message);
   }
 }
 
-async function finalizarLoginRedirect() {
-  if (loginRedirectEmProcessamento) return;
-  loginRedirectEmProcessamento = true;
-
-  try {
-    const result = await auth.getRedirectResult();
-
-    if (result && result.user) {
-      console.log("Login por redirecionamento finalizado:", result.user.email);
-      localStorage.removeItem("loginRedirectPendente");
-      localStorage.removeItem("loginRedirectInicio");
-    }
-  } catch (erro) {
-    console.error("Erro ao finalizar redirect:", erro);
-
-    const pendente = localStorage.getItem("loginRedirectPendente");
-
-    if (pendente) {
-      localStorage.removeItem("loginRedirectPendente");
-      localStorage.removeItem("loginRedirectInicio");
-      alert(
-        "O login voltou do Google, mas o navegador não concluiu a sessão. " +
-        "Confira se o domínio do Cloudflare está autorizado no Firebase Authentication e tente abrir pelo Chrome/Safari normal, fora do modo anônimo.
-
-" +
-        "Erro: " + erro.code
-      );
-    }
-  } finally {
-    if (auth.currentUser) {
-      localStorage.removeItem("loginRedirectPendente");
-      localStorage.removeItem("loginRedirectInicio");
-    }
-
-    loginRedirectEmProcessamento = false;
-  }
-}
 
 async function loginGoogle() {
   return login();
@@ -2715,19 +2681,6 @@ async function alternarTemaRapido() {
 }
 
 
-auth.getRedirectResult()
-  .then((result) => {
-    if (result && result.user) {
-      console.log("Login por redirecionamento realizado:", result.user.email);
-    }
-    localStorage.removeItem("loginRedirectPendente");
-  })
-  .catch((erro) => {
-    console.error("Erro no retorno do login:", erro);
-    localStorage.removeItem("loginRedirectPendente");
-  });
-
-finalizarLoginRedirect();
 
     auth.onAuthStateChanged(async (u) => {
       user = u || null;
