@@ -16,20 +16,27 @@ function estaOffline() {
   return !navigator.onLine;
 }
 
-    const notas = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-
-const equivalencias = {
- "Do": "C", "Re": "D", "Mi": "E", "Fa": "F", "Sol": "G", "La": "A", "Si": "B",
- "Db": "C#", "C#": "C#",
- "D#": "Eb", "Eb": "Eb",
- "Gb": "F#", "F#": "F#",
- "G#": "Ab", "Ab": "Ab",
- "A#": "Bb", "Bb": "Bb",
- "Cb": "B", "B#": "C", "Fb": "E", "E#": "F"
-};
+    const notasSustenido = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const notasBemol = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+    const notasIndice = {
+      C: 0, "B#": 0,
+      "C#": 1, Db: 1,
+      D: 2,
+      "D#": 3, Eb: 3,
+      E: 4, Fb: 4,
+      "E#": 5, F: 5,
+      "F#": 6, Gb: 6,
+      G: 7,
+      "G#": 8, Ab: 8,
+      A: 9,
+      "A#": 10, Bb: 10,
+      B: 11, Cb: 11,
+      Do: 0, Re: 2, Mi: 4, Fa: 5, Sol: 7, La: 9, Si: 11
+    };
 
 const regexAcorde = /^([A-G](?:#|b)?)(.*)$/;
-const regexAcordeNaLinha = /(^|[\s([{|])([A-G](?:#|b)?(?:maj|min|m|dim|aug|sus|add|alt|M|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?(?:[#b+\-]\d+)?(?:\/[A-G](?:#|b)?)?)(?=$|[\s)\]}|.,;:])/g;
+const PADRAO_ACORDE_TEXTO = String.raw`[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|alt|m|M|°|ø|\+|-)?(?:\d+)?(?:M|maj|min)?(?:\([^)]+\))?(?:[#b+\-]\d+)*)?(?:\/[A-G](?:#|b)?)?`;
+const regexAcordeNaLinha = new RegExp(`(^|[\s([{|])(${PADRAO_ACORDE_TEXTO})(?=$|[\s)\]}|.,;:])`, "g");
 
     const busca = document.getElementById("busca");
     const output = document.getElementById("output");
@@ -209,16 +216,17 @@ function fecharMenusAoClicarFora(event) {
     }
 
     function normalizarNota(nota) {
-  return equivalencias[nota] || nota;
+  const indice = notasIndice[nota];
+  return indice === undefined ? nota : notasSustenido[indice];
 }
 
 function transporNota(nota, passos) {
-  const notaNormalizada = normalizarNota(nota);
-  const indice = notas.indexOf(notaNormalizada);
+  const indice = notasIndice[nota];
 
-  if (indice === -1) return nota;
+  if (indice === undefined) return nota;
 
-  return notas[(indice + passos + 120) % 12];
+  const escala = String(nota).includes("b") ? notasBemol : notasSustenido;
+  return escala[(indice + passos + 120) % 12];
 }
 
 function transporAcorde(acorde, passos) {
@@ -241,8 +249,7 @@ function linhaPareceCifra(linha) {
 
   if (!texto) return false;
 
-  const regexAcordeCompleto =
-    /^([A-G](?:#|b)?(?:maj|min|m|dim|aug|sus|add|alt|M|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?(?:[#b+\-]\d+)?(?:\/[A-G](?:#|b)?)?)$/;
+  const regexAcordeCompleto = new RegExp(`^${PADRAO_ACORDE_TEXTO}$`);
 
   const palavras = texto.split(/\s+/);
 
@@ -287,12 +294,11 @@ function processar(t, passos) {
 function detectarTom(texto) {
   const linhas = String(texto || "").split("\n");
 
-  const regexTom =
-    /[A-G](?:#|b)?(?:(?:m|maj|min|dim|aug|sus|add|alt|M|ø|°|\+|-)?[0-9M#b+\-()]*)*(?:\/(?:[A-G](?:#|b)?|[0-9]+))?/g;
+  const regexTom = new RegExp(PADRAO_ACORDE_TEXTO, "g");
 
   for (const linha of linhas) {
     if (linhaPareceCifra(linha)) {
-      const acordes = linha.match(/[A-G](?:#|b)?(?:maj|min|m|dim|aug|sus|add|alt|M|°|ø|\+|-)?(?:\d+)?(?:\([^)]+\))?/g);
+      const acordes = linha.match(regexTom);
 
       if (acordes && acordes.length) {
         return acordes[0];
@@ -597,13 +603,12 @@ atualizarCabecalhoMusica(
     });
 
     await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-
-    const result = await auth.signInWithPopup(provider);
-
-    console.log("Login realizado:", result.user.email);
+    localStorage.setItem("loginRedirectPendente", "1");
+    await auth.signInWithRedirect(provider);
 
   } catch (erro) {
     console.error("Erro no login:", erro);
+    localStorage.removeItem("loginRedirectPendente");
     alert("Erro no login: " + erro.code + " - " + erro.message);
   }
 }
@@ -1094,11 +1099,38 @@ musicasOffline = docs;
       });
     }
 
+async function obterMusicaPorIdRapido(id) {
+  if (!id) return null;
+
+  let m = musicasOffline.find(item => item.id === id);
+  if (m) return m;
+
+  m = carregarMusicasOffline().find(item => item.id === id);
+  if (m) return m;
+
+  try {
+    m = (await carregarColecaoOffline("musicas")).find(item => item.id === id);
+    if (m) return m;
+  } catch (erro) {
+    console.log("IndexedDB indisponível para busca rápida.", erro);
+  }
+
+  if (!estaOffline()) {
+    try {
+      const doc = await db.collection("musicas").doc(id).get();
+      if (doc.exists) return { id: doc.id, ...doc.data() };
+    } catch (erro) {
+      console.error("Erro ao buscar música por ID:", erro);
+    }
+  }
+
+  return null;
+}
+
 async function abrir(id) {
   mostrarCifra();
 
-  const musicas = await buscarMusicasOnlineOuOffline();
-  const m = musicas.find(item => item.id === id);
+  const m = await obterMusicaPorIdRapido(id);
 
   if (!m) {
     alert("Música não encontrada.");
@@ -1110,6 +1142,7 @@ async function abrir(id) {
   semitons = 0;
 
   salvarRecente(id);
+  carregarInicio();
 
   atualizarCabecalhoMusica(
     m.titulo || "",
@@ -1795,6 +1828,7 @@ function favoritarMusicaAberta() {
   }
 
   const favorito = alternarFavorito(musicaAbertaId);
+  carregarInicio();
   alert(favorito ? "Música adicionada aos favoritos." : "Música removida dos favoritos.");
 }
 
@@ -2564,6 +2598,18 @@ async function alternarTemaRapido() {
 }
 
 
+auth.getRedirectResult()
+  .then((result) => {
+    if (result && result.user) {
+      console.log("Login por redirecionamento realizado:", result.user.email);
+    }
+    localStorage.removeItem("loginRedirectPendente");
+  })
+  .catch((erro) => {
+    console.error("Erro no retorno do login:", erro);
+    localStorage.removeItem("loginRedirectPendente");
+  });
+
     auth.onAuthStateChanged(async (u) => {
       user = u || null;
       usuarioAtual = u || null;
@@ -2622,6 +2668,8 @@ if (user) {
   await sincronizarMusicasOffline();
  await sincronizarFilaOffline();
 }
+
+await carregarInicio();
 });
 
 document.addEventListener("keydown", async (event) => {
@@ -2855,6 +2903,48 @@ function iniciarControlesPalco() {
   document.body.appendChild(controle);
 }
 
+async function carregarInicio() {
+  const boxRecentes = document.getElementById("inicioRecentes");
+  const boxFavoritas = document.getElementById("inicioFavoritas");
+  const boxSetlists = document.getElementById("inicioSetlists");
+
+  if (!boxRecentes || !boxFavoritas || !boxSetlists) return;
+
+  const [musicas, setlists] = await Promise.all([
+    buscarMusicasOnlineOuOffline(),
+    buscarSetlistsOnlineOuOffline()
+  ]);
+
+  function montarListaMusicas(ids, vazio) {
+    const itens = ids
+      .map(id => musicas.find(m => m.id === id))
+      .filter(Boolean)
+      .slice(0, 5);
+
+    if (!itens.length) return `<div class="empty-state">${vazio}</div>`;
+
+    return `<div class="inicio-compacto">${itens.map(m => `
+      <button onclick="abrir('${m.id}')">
+        ${escapeHtml(m.titulo || "Sem título")}<br>
+        <small>${escapeHtml(m.artista || "Artista não informado")}</small>
+      </button>
+    `).join("")}</div>`;
+  }
+
+  boxRecentes.innerHTML = montarListaMusicas(obterRecentes(), "Nenhuma música recente.");
+  boxFavoritas.innerHTML = montarListaMusicas(obterFavoritos(), "Nenhuma música favoritada.");
+
+  const setlistsRecentes = setlists.slice(0, 5);
+  boxSetlists.innerHTML = setlistsRecentes.length
+    ? `<div class="inicio-compacto">${setlistsRecentes.map(s => `
+        <button onclick="abrirPainel('setlists'); abrirSetlist('${s.id}')">
+          ${escapeHtml(s.nome || "Setlist sem nome")}<br>
+          <small>${(s.musicas || []).length} música(s)</small>
+        </button>
+      `).join("")}</div>`
+    : `<div class="empty-state">Nenhuma setlist recente.</div>`;
+}
+
 function abrirInicio() {
   const inicio = document.getElementById("telaInicio");
   const cifra = document.getElementById("telaCifra");
@@ -2863,6 +2953,7 @@ function abrirInicio() {
   if (cifra) cifra.style.display = "none";
 
   fecharPainel();
+  carregarInicio();
 }
 
 function continuarUltimaMusica() {
