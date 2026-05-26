@@ -3173,3 +3173,7 @@ window.addEventListener("load", () => {
     }
   }
 });
+
+window.login = login;
+window.loginGoogle = loginGoogle;
+window.logout = logout;
